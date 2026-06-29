@@ -1,0 +1,16 @@
+name = "project_tools"
+description = "Shared Project release and test tooling helpers"
+version = "0.1.0"
+
+authors = ["Bent Bracke"]
+maintainers = ["Bent Bracke <bent@bracke.dk>"]
+maintainers-logins = ["bracke"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+long-description = "project_tools provides small reusable helpers for Ada project check programs: text searches, filesystem predicates, raw file comparisons, and process execution helpers. Project-specific release policy remains in each project driver."
+
+website = ""
+tags = ["ada", "tooling", "release", "tests"]
+
+[[actions]]
+type = "test"
+command = ["sh", "-c", "cd tests && alr build && ./bin/project_tools_tests"]

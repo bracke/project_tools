@@ -1,0 +1,14 @@
+name = "project_tools_tests"
+description = "AUnit tests for project_tools"
+version = "0.1.0-dev"
+
+executables = ["project_tools_tests"]
+
+[[depends-on]]
+project_tools = "*"
+
+[[depends-on]]
+aunit = "*"
+
+[[pins]]
+project_tools = { path = ".." }

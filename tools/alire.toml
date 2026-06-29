@@ -1,0 +1,11 @@
+name = "project_tools_check_all"
+description = "release checklist for project_tools"
+version = "0.1.0-dev"
+
+executables = ["check_all"]
+
+[[depends-on]]
+project_tools = "*"
+
+[[pins]]
+project_tools = { path = ".." }

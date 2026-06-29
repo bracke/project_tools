@@ -1,0 +1,9 @@
+name = "project_tools_public_api_smoke"
+description = "External-consumer smoke build for project_tools"
+version = "0.1.0-dev"
+
+[[depends-on]]
+project_tools = "*"
+
+[[pins]]
+project_tools = { path = ".." }
