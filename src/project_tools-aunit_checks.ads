@@ -60,4 +60,27 @@ package Project_Tools.AUnit_Checks is
    --  @param Max_Registrations Maximum allowed Register_Routine occurrences.
    --  @param Metrics Accumulated suite metrics updated from the body.
    --  @param Quiet Suppress diagnostics when True.
+
+   procedure Require_Registered_Test_Packages
+     (Test_Dir                 : String;
+      Spec_Pattern             : String;
+      Suite_Path               : String;
+      Documentation_Path       : String;
+      Documented_Stem_Prefix   : String;
+      Suite_Add_Prefix         : String := "Result.Add_Test (new ";
+      Suite_Add_Suffix         : String := ".Test_Case)";
+      Registration_Token       : String := "Register_Routine";
+      Required_Stem_Suffix     : String := "_tests";
+      Quiet                    : Boolean := False);
+   --  Require split AUnit test packages to be registered and documented.
+   --  @param Test_Dir Directory containing test package specs and bodies.
+   --  @param Spec_Pattern Ada.Directories pattern for test package specs.
+   --  @param Suite_Path Suite body that withs and adds every package.
+   --  @param Documentation_Path Markdown or text inventory file.
+   --  @param Documented_Stem_Prefix Prefix used to recognize documented stems.
+   --  @param Suite_Add_Prefix Text before the package name in suite add calls.
+   --  @param Suite_Add_Suffix Text after the package name in suite add calls.
+   --  @param Registration_Token Token proving the body registers routines.
+   --  @param Required_Stem_Suffix Suffix required before stale docs are checked.
+   --  @param Quiet Suppress diagnostics when True.
 end Project_Tools.AUnit_Checks;

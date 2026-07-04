@@ -117,10 +117,50 @@ package body Project_Tools.Tree_Checks is
    end Check_No_Forbidden_Tokens;
 
    procedure Require_No_Nonempty_Stderr
-     (Dir   : String;
-      Quiet : Boolean := False)
+     (Dir                            : String;
+      Quiet                          : Boolean := False;
+      Allow_GNAT_Package_Spec_Stderr : Boolean := False)
    is
       Errors : Natural := 0;
+
+      function Is_Benign_Package_Spec_Stderr
+        (Path : String;
+         Name : String) return Boolean
+      is
+         Stderr_Suffix : constant String := ".stderr";
+         Prefix        : constant String := "cannot generate code for file ";
+         Suffix        : constant String := " (package spec)";
+         File          : Ada.Text_IO.File_Type;
+         Buffer        : String (1 .. 512);
+         Last          : Natural;
+      begin
+         if not Project_Tools.Text.Ends_With (Name, ".ads.stderr") then
+            return False;
+         end if;
+
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+         if Ada.Text_IO.End_Of_File (File) then
+            Ada.Text_IO.Close (File);
+            return False;
+         end if;
+
+         Ada.Text_IO.Get_Line (File, Buffer, Last);
+         declare
+            Source_Name : constant String := Name (Name'First .. Name'Last - Stderr_Suffix'Length);
+            Expected    : constant String := Prefix & Source_Name & Suffix;
+            Line        : constant String := Buffer (1 .. Last);
+            One_Line    : constant Boolean := Ada.Text_IO.End_Of_File (File);
+         begin
+            Ada.Text_IO.Close (File);
+            return One_Line and then Line = Expected;
+         end;
+      exception
+         when others =>
+            if Ada.Text_IO.Is_Open (File) then
+               Ada.Text_IO.Close (File);
+            end if;
+            return False;
+      end Is_Benign_Package_Spec_Stderr;
 
       procedure Scan (Path : String) is
          Search : Ada.Directories.Search_Type;
@@ -148,6 +188,9 @@ package body Project_Tools.Tree_Checks is
                         Scan (Full);
                      elsif Project_Tools.Text.Contains (Name, ".stderr")
                        and then Ada.Directories.Size (Full) > 0
+                       and then
+                         (not Allow_GNAT_Package_Spec_Stderr
+                          or else not Is_Benign_Package_Spec_Stderr (Full, Name))
                      then
                         Error (Errors, "generated stderr log is non-empty: " & Full, Quiet);
                      end if;

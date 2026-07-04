@@ -39,6 +39,86 @@ package body Project_Tools.AUnit_Checks is
         + Project_Tools.Text.Count (Text, "procedure AUnit_Test_");
    end Test_Body_Count;
 
+   function Test_Package_Name (Spec_Name : String) return String
+   is
+      Stem_Last  : constant Natural := Spec_Name'Last - 4;
+      Result     : String (Spec_Name'First .. Stem_Last);
+      Upper_Next : Boolean := True;
+   begin
+      for I in Result'Range loop
+         if Spec_Name (I) = '_' then
+            Result (I) := '_';
+            Upper_Next := True;
+         elsif Upper_Next and then Spec_Name (I) in 'a' .. 'z' then
+            Result (I) := Character'Val
+              (Character'Pos (Spec_Name (I)) - Character'Pos ('a') + Character'Pos ('A'));
+            Upper_Next := False;
+         else
+            Result (I) := Spec_Name (I);
+            Upper_Next := False;
+         end if;
+      end loop;
+
+      return Result;
+   end Test_Package_Name;
+
+   function Declared_Package_Name (Spec_Path : String; Fallback_Name : String) return String is
+      File   : Ada.Text_IO.File_Type;
+      Buffer : String (1 .. 4096);
+      Last   : Natural;
+      Prefix : constant String := "package ";
+
+      function Trim (Text : String) return String is
+         First : Natural := Text'First;
+         Last_Char : Natural := Text'Last;
+      begin
+         while First <= Text'Last and then Text (First) = ' ' loop
+            First := First + 1;
+         end loop;
+
+         while Last_Char >= First and then Text (Last_Char) = ' ' loop
+            Last_Char := Last_Char - 1;
+         end loop;
+
+         if First > Last_Char then
+            return "";
+         else
+            return Text (First .. Last_Char);
+         end if;
+      end Trim;
+   begin
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Spec_Path);
+      while not Ada.Text_IO.End_Of_File (File) loop
+         Ada.Text_IO.Get_Line (File, Buffer, Last);
+         declare
+            Line : constant String := Trim (Buffer (1 .. Last));
+         begin
+            if Project_Tools.Text.Starts_With (Line, Prefix) then
+               declare
+                  Rest : constant String := Line (Line'First + Prefix'Length .. Line'Last);
+                  Stop : Natural := Rest'First;
+               begin
+                  while Stop <= Rest'Last and then Rest (Stop) /= ' ' and then Rest (Stop) /= ';' loop
+                     Stop := Stop + 1;
+                  end loop;
+
+                  Ada.Text_IO.Close (File);
+                  return Rest (Rest'First .. Stop - 1);
+               end;
+            end if;
+         end;
+      end loop;
+
+      Ada.Text_IO.Close (File);
+      return Fallback_Name;
+   exception
+      when others =>
+         if Ada.Text_IO.Is_Open (File) then
+            Ada.Text_IO.Close (File);
+         end if;
+         return Fallback_Name;
+   end Declared_Package_Name;
+
    function Collect_Suite_Metrics
      (Directory : String;
       Pattern   : String) return Suite_Metrics
@@ -157,4 +237,179 @@ package body Project_Tools.AUnit_Checks is
             Quiet);
       end if;
    end Check_Section_Suite;
+
+   procedure Require_Registered_Test_Packages
+     (Test_Dir                 : String;
+      Spec_Pattern             : String;
+      Suite_Path               : String;
+      Documentation_Path       : String;
+      Documented_Stem_Prefix   : String;
+      Suite_Add_Prefix         : String := "Result.Add_Test (new ";
+      Suite_Add_Suffix         : String := ".Test_Case)";
+      Registration_Token       : String := "Register_Routine";
+      Required_Stem_Suffix     : String := "_tests";
+      Quiet                    : Boolean := False)
+   is
+      Search : Ada.Directories.Search_Type;
+      Open   : Boolean := False;
+      Errors : Natural := 0;
+
+      function Has_Suffix (Text : String; Suffix : String) return Boolean is
+        (Text'Length >= Suffix'Length
+         and then Text (Text'Last - Suffix'Length + 1 .. Text'Last) = Suffix);
+
+      function Has_Prefix (Text : String; Prefix : String) return Boolean is
+        (Text'Length >= Prefix'Length
+         and then Text (Text'First .. Text'First + Prefix'Length - 1) = Prefix);
+
+      procedure Require_Documented_AUnit_Tests_Exist is
+         File   : Ada.Text_IO.File_Type;
+         Buffer : String (1 .. 4096);
+         Last   : Natural;
+      begin
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Documentation_Path);
+         while not Ada.Text_IO.End_Of_File (File) loop
+            Ada.Text_IO.Get_Line (File, Buffer, Last);
+            if Last >= Documented_Stem_Prefix'Length
+              and then Has_Prefix (Buffer (1 .. Last), Documented_Stem_Prefix)
+            then
+               declare
+                  Open_Backtick  : Natural := 0;
+                  Close_Backtick : Natural := 0;
+               begin
+                  for I in 1 .. Last loop
+                     if Buffer (I) = '`' then
+                        Open_Backtick := I;
+                        exit;
+                     end if;
+                  end loop;
+
+                  if Open_Backtick > 0 then
+                     for I in Open_Backtick + 1 .. Last loop
+                        if Buffer (I) = '`' then
+                           Close_Backtick := I;
+                           exit;
+                        end if;
+                     end loop;
+                  end if;
+
+                  if Open_Backtick = 0 or else Close_Backtick = 0 then
+                     Error (Errors, "malformed AUnit inventory entry in " & Documentation_Path, Quiet);
+                  else
+                     declare
+                        Stem : constant String :=
+                          Buffer (Open_Backtick + 1 .. Close_Backtick - 1);
+                     begin
+                        if Has_Suffix (Stem, Required_Stem_Suffix)
+                          and then not Ada.Directories.Exists (Test_Dir & "/" & Stem & ".ads")
+                        then
+                           Error
+                             (Errors,
+                              Documentation_Path & " lists missing AUnit test package: " & Stem,
+                              Quiet);
+                        end if;
+                     end;
+                  end if;
+               end;
+            end if;
+         end loop;
+
+         Ada.Text_IO.Close (File);
+      exception
+         when others =>
+            if Ada.Text_IO.Is_Open (File) then
+               Ada.Text_IO.Close (File);
+            end if;
+            raise;
+      end Require_Documented_AUnit_Tests_Exist;
+   begin
+      Ada.Directories.Start_Search (Search, Test_Dir, Spec_Pattern);
+      Open := True;
+      while Ada.Directories.More_Entries (Search) loop
+         declare
+            Item : Ada.Directories.Directory_Entry_Type;
+         begin
+            Ada.Directories.Get_Next_Entry (Search, Item);
+            declare
+               Name      : constant String := Ada.Directories.Simple_Name (Item);
+               Stem      : constant String := Name (Name'First .. Name'Last - 4);
+               Body_Path : constant String := Test_Dir & "/" & Stem & ".adb";
+               Spec_Path : constant String := Test_Dir & "/" & Name;
+               Test_Pkg  : constant String :=
+                 Declared_Package_Name (Spec_Path, Test_Package_Name (Name));
+            begin
+               if not Ada.Directories.Exists (Body_Path) then
+                  Error (Errors, "AUnit test package spec has no body: " & Name, Quiet);
+               elsif not Project_Tools.Files.File_Contains (Body_Path, Registration_Token) then
+                  Error (Errors, "AUnit test package registers no routines: " & Stem, Quiet);
+               end if;
+
+               if not Project_Tools.Files.File_Contains (Suite_Path, "with " & Test_Pkg & ";") then
+                  Error (Errors, "AUnit test package is not withed by suite: " & Test_Pkg, Quiet);
+               end if;
+
+               if not Project_Tools.Files.File_Contains
+                 (Suite_Path, Suite_Add_Prefix & Test_Pkg & Suite_Add_Suffix)
+               then
+                  Error (Errors, "AUnit test package is not added to suite: " & Test_Pkg, Quiet);
+               end if;
+
+               if not Project_Tools.Files.File_Contains (Documentation_Path, "`" & Stem & "`") then
+                  Error
+                    (Errors,
+                     "AUnit test package is not listed in " & Documentation_Path & ": " & Stem,
+                     Quiet);
+               end if;
+            end;
+         end;
+      end loop;
+
+      Ada.Directories.End_Search (Search);
+      Open := False;
+
+      Ada.Directories.Start_Search
+        (Search, Test_Dir, "*" & Required_Stem_Suffix & ".adb");
+      Open := True;
+      while Ada.Directories.More_Entries (Search) loop
+         declare
+            Item : Ada.Directories.Directory_Entry_Type;
+         begin
+            Ada.Directories.Get_Next_Entry (Search, Item);
+            declare
+               Name      : constant String := Ada.Directories.Simple_Name (Item);
+               Stem      : constant String := Name (Name'First .. Name'Last - 4);
+               Spec_Path : constant String := Test_Dir & "/" & Stem & ".ads";
+            begin
+               if not Ada.Directories.Exists (Spec_Path) then
+                  Error (Errors, "AUnit test package body has no spec: " & Name, Quiet);
+               end if;
+            end;
+         end;
+      end loop;
+
+      Ada.Directories.End_Search (Search);
+      Open := False;
+
+      Require_Documented_AUnit_Tests_Exist;
+
+      if Errors > 0 then
+         raise Program_Error;
+      end if;
+   exception
+      when others =>
+         if Open then
+            begin
+               Ada.Directories.End_Search (Search);
+            exception
+               when others =>
+                  null;
+            end;
+         end if;
+
+         if Errors > 0 then
+            raise Program_Error;
+         end if;
+
+         raise;
+   end Require_Registered_Test_Packages;
 end Project_Tools.AUnit_Checks;

@@ -30,6 +30,56 @@ package Project_Tools.Release_Checks is
      (Path  : String;
       Quiet : Boolean := False);
 
+   procedure Require_Clean_Git_Worktree
+     (Label : String;
+      Path  : String;
+      Quiet : Boolean := False);
+   --  Require Path to be a Git worktree with no porcelain status output.
+   --  @param Label Human-readable repository name for diagnostics.
+   --  @param Path Path to the Git worktree to inspect.
+   --  @param Quiet Suppress diagnostics when True.
+
+   procedure Require_GPR_Main_Inventory
+     (Project_File                   : String;
+      Documentation_File             : String;
+      Source_Directory               : String;
+      Alternate_Stem_Prefix          : String := "";
+      Alternate_Source_Directory     : String := "";
+      Alternate_Documentation_File   : String := "";
+      Runner_File                    : String := "";
+      Runner_Token_Prefix            : String := "";
+      Runner_Token_Suffix            : String := "";
+      Quiet                          : Boolean := False);
+   --  Require every .adb main listed in a GPR file to have a source and docs.
+   --  @param Project_File GPR file containing quoted .adb main names.
+   --  @param Documentation_File File that must mention every executable stem.
+   --  @param Source_Directory Directory for ordinary main sources.
+   --  @param Alternate_Stem_Prefix Stem prefix for alternate-source mains.
+   --  @param Alternate_Source_Directory Directory for alternate-source mains.
+   --  @param Alternate_Documentation_File Extra docs file for alternate mains.
+   --  @param Runner_File File that must mention alternate mains, if provided.
+   --  @param Runner_Token_Prefix Prefix before the alternate stem in Runner_File.
+   --  @param Runner_Token_Suffix Suffix after the alternate stem in Runner_File.
+   --  @param Quiet Suppress diagnostics when True.
+
+   procedure Require_Program_Output_Matches_Fenced_Text
+     (Expected_File : String;
+      Fence_Label   : String;
+      Dir           : String;
+      Program       : String;
+      Args          : GNAT.OS_Lib.Argument_List;
+      Label         : String;
+      Quiet         : Boolean := False);
+   --  Run Program and require stdout to exactly match the first fenced block
+   --  labelled Fence_Label in Expected_File, for example ```text.
+   --  @param Expected_File Markdown/text file containing the expected block.
+   --  @param Fence_Label Fence info string without backticks, for example "text".
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Arguments passed to Program.
+   --  @param Label Human-readable command label for diagnostics.
+   --  @param Quiet Suppress informational diagnostics when True.
+
    procedure Run
      (Label   : String;
       Dir     : String;

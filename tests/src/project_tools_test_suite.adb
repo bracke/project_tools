@@ -11,6 +11,7 @@ with AUnit.Simple_Test_Cases;
 with AUnit.Test_Suites;
 
 with Project_Tools.Alire_Manifests;
+with Project_Tools.Ada_Source;
 with Project_Tools.AUnit_Checks;
 with Project_Tools.Files;
 with Project_Tools.JSON;
@@ -34,6 +35,7 @@ package body Project_Tools_Test_Suite is
    type Process_Output_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
    type Promoted_Helpers_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
    type Release_Checks_Fail_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
+   type Release_Checks_Git_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
    type AUnit_Check_Helper_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
    type Tree_Check_Helper_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
    type Security_Corpus_Helper_Test is new AUnit.Simple_Test_Cases.Test_Case with null record;
@@ -61,6 +63,7 @@ package body Project_Tools_Test_Suite is
    overriding function Name (Item : Process_Output_Test) return AUnit.Message_String;
    overriding function Name (Item : Promoted_Helpers_Test) return AUnit.Message_String;
    overriding function Name (Item : Release_Checks_Fail_Test) return AUnit.Message_String;
+   overriding function Name (Item : Release_Checks_Git_Test) return AUnit.Message_String;
    overriding function Name (Item : AUnit_Check_Helper_Test) return AUnit.Message_String;
    overriding function Name (Item : Tree_Check_Helper_Test) return AUnit.Message_String;
    overriding function Name (Item : Security_Corpus_Helper_Test) return AUnit.Message_String;
@@ -76,6 +79,7 @@ package body Project_Tools_Test_Suite is
    overriding procedure Run_Test (Item : in out Process_Output_Test);
    overriding procedure Run_Test (Item : in out Promoted_Helpers_Test);
    overriding procedure Run_Test (Item : in out Release_Checks_Fail_Test);
+   overriding procedure Run_Test (Item : in out Release_Checks_Git_Test);
    overriding procedure Run_Test (Item : in out AUnit_Check_Helper_Test);
    overriding procedure Run_Test (Item : in out Tree_Check_Helper_Test);
    overriding procedure Run_Test (Item : in out Security_Corpus_Helper_Test);
@@ -159,6 +163,12 @@ package body Project_Tools_Test_Suite is
       pragma Unreferenced (Item);
    begin
       return AUnit.Format ("Release_Checks.Fail");
+   end Name;
+
+   overriding function Name (Item : Release_Checks_Git_Test) return AUnit.Message_String is
+      pragma Unreferenced (Item);
+   begin
+      return AUnit.Format ("Release_Checks.Require_Clean_Git_Worktree");
    end Name;
 
    overriding function Name (Item : AUnit_Check_Helper_Test) return AUnit.Message_String is
@@ -373,6 +383,77 @@ package body Project_Tools_Test_Suite is
          Project_Tools.Release_Checks.Require_Absolute_File (Text_Path, Quiet => True);
          Project_Tools.Release_Checks.Require_Absolute_Directory (Root, Quiet => True);
       end;
+      Ada.Directories.Create_Path (Root & "/tools/fuzz");
+      Write_File
+        (Root & "/tools/tools.gpr",
+         "project Tools is" & ASCII.LF
+         & "for Main use (""tool_one.adb"", ""fuzz_case.adb"");" & ASCII.LF
+         & "end Tools;" & ASCII.LF);
+      Write_File (Root & "/tools/tool_one.adb", "procedure Tool_One is begin null; end Tool_One;" & ASCII.LF);
+      Write_File (Root & "/tools/fuzz/fuzz_case.adb", "procedure Fuzz_Case is begin null; end Fuzz_Case;" & ASCII.LF);
+      Write_File (Root & "/tools/README.md", "tool_one" & ASCII.LF & "fuzz_case" & ASCII.LF);
+      Write_File
+        (Root & "/docs-fuzz.md",
+         "tools/fuzz/fuzz_case.adb" & ASCII.LF & "`fuzz_case`" & ASCII.LF);
+      Write_File (Root & "/runner.adb", "./tools/bin/fuzz_case" & ASCII.LF);
+      Project_Tools.Release_Checks.Require_GPR_Main_Inventory
+        (Project_File                 => Root & "/tools/tools.gpr",
+         Documentation_File           => Root & "/tools/README.md",
+         Source_Directory             => Root & "/tools",
+         Alternate_Stem_Prefix        => "fuzz_",
+         Alternate_Source_Directory   => Root & "/tools/fuzz",
+         Alternate_Documentation_File => Root & "/docs-fuzz.md",
+         Runner_File                  => Root & "/runner.adb",
+         Runner_Token_Prefix          => "./tools/bin/",
+         Quiet                        => True);
+      Write_File
+        (Root & "/api.ads",
+         "package API is" & ASCII.LF
+         & "function Value (Input : Integer; Status : out Integer) return Integer;" & ASCII.LF
+         & "--  @param Input input value" & ASCII.LF
+         & "--  @param Status status output" & ASCII.LF
+         & "--  @return transformed value" & ASCII.LF
+         & "procedure Reset (State : out Integer);" & ASCII.LF
+         & "--  @param State state to reset" & ASCII.LF
+         & "private" & ASCII.LF
+         & "function Private_Value (Input : Integer) return Integer;" & ASCII.LF
+         & "end API;" & ASCII.LF);
+      Project_Tools.Ada_Source.Require_Public_GNATdoc_Tags
+        (Root & "/api.ads", Quiet => True);
+      Write_File
+        (Root & "/imports.ads",
+         "with Ada.Text_IO;" & ASCII.LF
+         & "--  with I18N.Parser;" & ASCII.LF
+         & "limited with I18N.Runtime, " & ASCII.LF
+         & "  I18N.Locales;" & ASCII.LF
+         & "private with I18N.Result;" & ASCII.LF
+         & "package Imports is end Imports;" & ASCII.LF);
+      Project_Tools.Ada_Source.Require_Only_Allowed_With_Clauses
+        (Root & "/imports.ads",
+         "I18N.",
+         [To_Unbounded_String ("I18N.Runtime"),
+          To_Unbounded_String ("I18N.Locales"),
+          To_Unbounded_String ("I18N.Result")],
+         Quiet => True);
+      Write_File
+        (Root & "/policy-ok.adb",
+         "package body Policy_OK is" & ASCII.LF
+         & "   -- yesterday is fine in comments" & ASCII.LF
+         & "   function Key (Id : Integer) return String is" & ASCII.LF
+         & "   begin" & ASCII.LF
+         & "      case Id is" & ASCII.LF
+         & "         when 0 => return """";" & ASCII.LF
+         & "         when 1 => return ""alpha"";" & ASCII.LF
+         & "         when others => return ""beta"";" & ASCII.LF
+         & "      end case;" & ASCII.LF
+         & "   end Key;" & ASCII.LF
+         & "end Policy_OK;" & ASCII.LF);
+      Project_Tools.Ada_Source.Require_No_Code_Tokens
+        (Root & "/policy-ok.adb",
+         [To_Unbounded_String ("yesterday"), To_Unbounded_String ("tomorrow")],
+         Quiet => True);
+      Project_Tools.Ada_Source.Require_Unique_String_Returns
+        (Root & "/policy-ok.adb", "Key", Allow_Empty => True, Quiet => True);
       Assert
         (not Project_Tools.Files.File_Starts_With_File (Text_Path, Long_Prefix_Path),
          "prefix comparison rejects longer non-matching prefix files");
@@ -492,6 +573,29 @@ package body Project_Tools_Test_Suite is
          "name = ""example""" & ASCII.LF
          & "[[depends-on]]" & ASCII.LF
          & "dep = ""*""" & ASCII.LF);
+      Write_File
+        (Root & "/bad-imports.ads",
+         "with I18N.Runtime, I18N.Parser;" & ASCII.LF
+         & "package Bad_Imports is end Bad_Imports;" & ASCII.LF);
+      Write_File
+        (Root & "/bad-policy.adb",
+         "package body Bad_Policy is" & ASCII.LF
+         & "   function Label return String is" & ASCII.LF
+         & "   begin" & ASCII.LF
+         & "      return ""yesterday"";" & ASCII.LF
+         & "   end Label;" & ASCII.LF
+         & "end Bad_Policy;" & ASCII.LF);
+      Write_File
+        (Root & "/duplicate-returns.adb",
+         "package body Duplicate_Returns is" & ASCII.LF
+         & "   function Key (Id : Integer) return String is" & ASCII.LF
+         & "   begin" & ASCII.LF
+         & "      case Id is" & ASCII.LF
+         & "         when 1 => return ""same"";" & ASCII.LF
+         & "         when others => return ""same"";" & ASCII.LF
+         & "      end case;" & ASCII.LF
+         & "   end Key;" & ASCII.LF
+         & "end Duplicate_Returns;" & ASCII.LF);
       Ada.Directories.Create_Path (Root & "/staged");
       Write_File (Root & "/staged/alire.toml", "name = ""staged""" & ASCII.LF);
 
@@ -527,6 +631,29 @@ package body Project_Tools_Test_Suite is
                [To_Unbounded_String ("missing = { path = ""../missing"" }")],
                Quiet => True);
          end Missing_Build_Overlay_Pin;
+
+         procedure Disallowed_With_Clause is
+         begin
+            Project_Tools.Ada_Source.Require_Only_Allowed_With_Clauses
+              (Root & "/bad-imports.ads",
+               "I18N.",
+               [1 => To_Unbounded_String ("I18N.Runtime")],
+               Quiet => True);
+         end Disallowed_With_Clause;
+
+         procedure Forbidden_Code_Token is
+         begin
+            Project_Tools.Ada_Source.Require_No_Code_Tokens
+              (Root & "/bad-policy.adb",
+               [1 => To_Unbounded_String ("yesterday")],
+               Quiet => True);
+         end Forbidden_Code_Token;
+
+         procedure Duplicate_String_Return is
+         begin
+            Project_Tools.Ada_Source.Require_Unique_String_Returns
+              (Root & "/duplicate-returns.adb", "Key", Quiet => True);
+         end Duplicate_String_Return;
       begin
          Expect_Program_Error (Local_Pin_In_Release'Access, "local pin rejection raises Program_Error");
          Expect_Program_Error
@@ -535,6 +662,9 @@ package body Project_Tools_Test_Suite is
          Expect_Program_Error
            (Missing_Staged_Source_File'Access, "incomplete staged source raises Program_Error");
          Expect_Program_Error (Missing_Build_Overlay_Pin'Access, "incomplete build overlay raises Program_Error");
+         Expect_Program_Error (Disallowed_With_Clause'Access, "disallowed with clause raises Program_Error");
+         Expect_Program_Error (Forbidden_Code_Token'Access, "forbidden code token raises Program_Error");
+         Expect_Program_Error (Duplicate_String_Return'Access, "duplicate string return raises Program_Error");
       end;
 
       Delete_Tree_If_Present (Root);
@@ -622,6 +752,8 @@ package body Project_Tools_Test_Suite is
       Output    : Ada.Strings.Unbounded.Unbounded_String;
       Status    : Integer;
    begin
+      Delete_Tree_If_Present (Root);
+      Ada.Directories.Create_Path (Root);
       Assert (Echo_Path /= null, "echo executable is available on PATH");
       Status :=
         Project_Tools.Processes.Run_Status
@@ -637,8 +769,46 @@ package body Project_Tools_Test_Suite is
            (Ada.Strings.Unbounded.To_String (Output), "project-tools-capture"),
          "Run_Status output overload returns the child's standard output");
 
+      Write_File
+        (Root & "/expected.md",
+         "# Expected" & ASCII.LF
+         & "```text" & ASCII.LF
+         & "project-tools-capture" & ASCII.LF
+         & "```" & ASCII.LF);
+      Project_Tools.Release_Checks.Require_Program_Output_Matches_Fenced_Text
+        (Expected_File => Root & "/expected.md",
+         Fence_Label   => "text",
+         Dir           => Ada.Directories.Current_Directory,
+         Program       => Echo_Path.all,
+         Args          => Args,
+         Label         => "echo expected output",
+         Quiet         => True);
+
+      Write_File
+        (Root & "/wrong-expected.md",
+         "# Expected" & ASCII.LF
+         & "```text" & ASCII.LF
+         & "different" & ASCII.LF
+         & "```" & ASCII.LF);
+      declare
+         procedure Wrong_Output is
+         begin
+            Project_Tools.Release_Checks.Require_Program_Output_Matches_Fenced_Text
+              (Expected_File => Root & "/wrong-expected.md",
+               Fence_Label   => "text",
+               Dir           => Ada.Directories.Current_Directory,
+               Program       => Echo_Path.all,
+               Args          => Args,
+               Label         => "echo wrong output",
+               Quiet         => True);
+         end Wrong_Output;
+      begin
+         Expect_Program_Error (Wrong_Output'Access, "mismatched expected output raises Program_Error");
+      end;
+
       GNAT.OS_Lib.Free (Echo_Path);
       GNAT.OS_Lib.Free (Args (1));
+      Delete_Tree_If_Present (Root);
    exception
       when others =>
          if Echo_Path /= null then
@@ -647,6 +817,7 @@ package body Project_Tools_Test_Suite is
          if Args (1) /= null then
             GNAT.OS_Lib.Free (Args (1));
          end if;
+         Delete_Tree_If_Present (Root);
          raise;
    end Run_Test;
 
@@ -736,6 +907,51 @@ package body Project_Tools_Test_Suite is
         (Do_Fail'Access, "Release_Checks.Fail raises Program_Error on failure");
    end Run_Test;
 
+   overriding procedure Run_Test (Item : in out Release_Checks_Git_Test) is
+      pragma Unreferenced (Item);
+      Git_Path : constant String := Project_Tools.Processes.Locate_Command ("git");
+      Git_Args : GNAT.OS_Lib.Argument_List (1 .. 2) :=
+        [new String'("init"), new String'("--quiet")];
+      Repo     : constant String := Root & "/git-clean";
+
+      procedure Require_Dirty_Fails is
+      begin
+         Project_Tools.Release_Checks.Require_Clean_Git_Worktree
+           ("test repo", Repo, Quiet => True);
+      end Require_Dirty_Fails;
+   begin
+      Assert (Git_Path /= "", "git executable is available on PATH");
+      Delete_Tree_If_Present (Root);
+      Ada.Directories.Create_Path (Repo);
+      Project_Tools.Processes.Run
+        (Label   => "initialize temporary git repository",
+         Dir     => Repo,
+         Program => Git_Path,
+         Args    => Git_Args,
+         Quiet   => True);
+
+      Project_Tools.Release_Checks.Require_Clean_Git_Worktree
+        ("test repo", Repo, Quiet => True);
+      Write_File (Repo & "/untracked.txt", "dirty" & ASCII.LF);
+      Expect_Program_Error
+        (Require_Dirty_Fails'Access,
+         "Require_Clean_Git_Worktree raises Program_Error for dirty status");
+
+      GNAT.OS_Lib.Free (Git_Args (1));
+      GNAT.OS_Lib.Free (Git_Args (2));
+      Delete_Tree_If_Present (Root);
+   exception
+      when others =>
+         if Git_Args (1) /= null then
+            GNAT.OS_Lib.Free (Git_Args (1));
+         end if;
+         if Git_Args (2) /= null then
+            GNAT.OS_Lib.Free (Git_Args (2));
+         end if;
+         Delete_Tree_If_Present (Root);
+         raise;
+   end Run_Test;
+
    overriding procedure Run_Test (Item : in out AUnit_Check_Helper_Test) is
       pragma Unreferenced (Item);
       Body_Path : constant String := Root & "/sample-tests.adb";
@@ -788,6 +1004,25 @@ package body Project_Tools_Test_Suite is
          Assert (Collected.Assertion_Count = 1, "collector counts assertions");
          Assert (Collected.Test_Body_Count = 1, "collector counts test bodies");
       end;
+      Ada.Directories.Create_Path (Root & "/suite");
+      Write_File
+        (Root & "/suite/sample_one_tests.ads",
+         "package Sample_One_Tests is type Test_Case is null record; end Sample_One_Tests;" & ASCII.LF);
+      Write_File
+        (Root & "/suite/sample_one_tests.adb",
+         "package body Sample_One_Tests is Register_Routine; end Sample_One_Tests;" & ASCII.LF);
+      Write_File
+        (Root & "/suite/suite.adb",
+         "with Sample_One_Tests;" & ASCII.LF
+         & "procedure Suite is begin Result.Add_Test (new Sample_One_Tests.Test_Case); end Suite;" & ASCII.LF);
+      Write_File (Root & "/suite/TESTING.md", "- `sample_one_tests`" & ASCII.LF);
+      Project_Tools.AUnit_Checks.Require_Registered_Test_Packages
+        (Test_Dir               => Root & "/suite",
+         Spec_Pattern           => "sample_*_tests.ads",
+         Suite_Path             => Root & "/suite/suite.adb",
+         Documentation_Path     => Root & "/suite/TESTING.md",
+         Documented_Stem_Prefix => "- `sample_",
+         Quiet                  => True);
       Delete_Tree_If_Present (Root);
    exception
       when others =>
@@ -807,6 +1042,13 @@ package body Project_Tools_Test_Suite is
         (Errors, Root & "/clean", [To_Unbounded_String ("forbidden")], "clean tree", Quiet => True);
       Assert (Errors = 0, "clean tree has no hygiene errors");
       Project_Tools.Tree_Checks.Require_No_Nonempty_Stderr (Root & "/clean", Quiet => True);
+      Write_File
+        (Root & "/clean/sample.ads.stderr",
+         "cannot generate code for file sample.ads (package spec)" & ASCII.LF);
+      Project_Tools.Tree_Checks.Require_No_Nonempty_Stderr
+        (Root & "/clean",
+         Quiet                         => True,
+         Allow_GNAT_Package_Spec_Stderr => True);
       Write_File (Root & "/clean/script.py", "print('x')" & ASCII.LF);
       Project_Tools.Tree_Checks.Check_No_Generated_Python (Errors, Root & "/clean", Quiet => True);
       Assert (Errors = 1, "python artifact increments hygiene errors");
@@ -966,6 +1208,7 @@ package body Project_Tools_Test_Suite is
       Result.Add_Test (new Process_Output_Test);
       Result.Add_Test (new Promoted_Helpers_Test);
       Result.Add_Test (new Release_Checks_Fail_Test);
+      Result.Add_Test (new Release_Checks_Git_Test);
       Result.Add_Test (new AUnit_Check_Helper_Test);
       Result.Add_Test (new Tree_Check_Helper_Test);
       Result.Add_Test (new Security_Corpus_Helper_Test);

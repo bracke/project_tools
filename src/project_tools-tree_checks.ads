@@ -28,9 +28,11 @@ package Project_Tools.Tree_Checks is
    --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_No_Nonempty_Stderr
-     (Dir   : String;
-      Quiet : Boolean := False);
+     (Dir                           : String;
+      Quiet                         : Boolean := False;
+      Allow_GNAT_Package_Spec_Stderr : Boolean := False);
    --  Recursively reject non-empty generated .stderr logs below Dir.
    --  @param Dir Directory tree to inspect. Missing or non-directory paths are ignored.
    --  @param Quiet Suppress diagnostics when True.
+   --  @param Allow_GNAT_Package_Spec_Stderr Allow GNAT package-spec codegen notes.
 end Project_Tools.Tree_Checks;

@@ -68,7 +68,15 @@ Generated HTML goes under `docs/api/`; it is documentation output, not part of t
 
 ## Intended Use
 
-Use this crate from repository-local tools such as release checkers, AUnit-suite checkers, documentation checkers, or source-staging helpers when they need common filesystem, text, manifest, or process operations. Keep project-specific policy in the consuming crate: this crate should not know which crates a product releases, which README wording a project requires, or which command sequence makes a release valid. The `tools/check_generated_artifacts.sh` and `tools/optional_tool.sh` scripts provide shared mechanics while the consuming project supplies its own generator command, artifact list, and smoke checks.
+Use this crate from repository-local tools such as release checkers, AUnit-suite
+checkers, documentation checkers, source-staging helpers, or Ada source hygiene
+checks when they need common filesystem, text, manifest, source-scanning, or
+process operations. Keep project-specific policy in the consuming crate: this
+crate should not know which crates a product releases, which README wording a
+project requires, or which command sequence makes a release valid. The
+`tools/check_generated_artifacts.sh` and `tools/optional_tool.sh` scripts
+provide shared mechanics while the consuming project supplies its own generator
+command, artifact list, and smoke checks.
 
 ## Packages
 
@@ -78,9 +86,21 @@ Use this crate from repository-local tools such as release checkers, AUnit-suite
 
 `Project_Tools.Processes` contains wrappers around `GNAT.OS_Lib.Spawn` for running a program in a selected directory, either failing the current tool or returning the child status.
 
-`Project_Tools.Release_Checks` contains root-relative release assertion wrappers for check programs, plus absolute installed-artifact checks and a `Run` rename for process steps.
+`Project_Tools.Ada_Source` contains Ada identifier/reserved-word helpers and
+public-spec GNATdoc tag enforcement for check programs.
 
-`Project_Tools.Tree_Checks` contains recursive tree hygiene checks, including generated Python artifact checks, forbidden-token checks, and non-empty generated `.stderr` log rejection.
+`Project_Tools.AUnit_Checks` contains AUnit suite metrics, split-suite
+structure checks, and registration/documentation inventory checks for test
+package sets.
+
+`Project_Tools.Release_Checks` contains root-relative release assertion wrappers
+for check programs, absolute installed-artifact checks, GPR main inventory
+checks, and a `Run` rename for process steps.
+
+`Project_Tools.Tree_Checks` contains recursive tree hygiene checks, including
+generated Python artifact checks, forbidden-token checks, and non-empty
+generated `.stderr` log rejection with an option for benign GNAT package-spec
+messages.
 
 `Project_Tools.Alire_Manifests` is the stable facade for Alire manifest helpers. It is backed by two child packages:
 
