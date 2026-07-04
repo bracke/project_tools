@@ -1,15 +1,19 @@
+with Ada.Characters.Handling;
 with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Exceptions;
 with Ada.Text_IO;
 
 with GNAT.OS_Lib;
+with Project_Tools.Files;
 with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
+with Project_Tools.Text;
 with Project_Tools.Tree_Checks;
 
 procedure Check_All is
    use Ada.Text_IO;
+   use type Ada.Directories.File_Kind;
 
    function Project_Root return String is
       Here : constant String := Ada.Directories.Current_Directory;
@@ -51,6 +55,127 @@ procedure Check_All is
       Project_Tools.Release_Checks.Require_Text (Checks, Relative_Path, Text);
    end Require_Text;
 
+   --  Ada-only-tooling gate. project_tools provides the "no Python/shell
+   --  helper scripts" discipline to its consumers, so it must enforce the same
+   --  policy on its own tree: no shell scripts (.sh and friends), no shebang
+   --  helper scripts, and no packaged Python sources.
+
+   function Is_Generated_Directory_Name (Name : String) return Boolean is
+   --  @param Name Simple directory name to test.
+   --  @return True for build/tooling caches that must not be scanned.
+   begin
+      return Name = "bin"
+        or else Name = "obj"
+        or else Name = "lib"
+        or else Name = "alire"
+        or else Name = ".git";
+   end Is_Generated_Directory_Name;
+
+   function Has_Shell_Tooling_Extension (Name : String) return Boolean is
+   --  @param Name Simple file name to test.
+   --  @return True when Name has a shell-script extension.
+      Lower : constant String := Ada.Characters.Handling.To_Lower (Name);
+   begin
+      return Project_Tools.Text.Ends_With (Lower, ".sh")
+        or else Project_Tools.Text.Ends_With (Lower, ".bash")
+        or else Project_Tools.Text.Ends_With (Lower, ".zsh")
+        or else Project_Tools.Text.Ends_With (Lower, ".ksh")
+        or else Project_Tools.Text.Ends_With (Lower, ".fish");
+   end Has_Shell_Tooling_Extension;
+
+   function Has_Shebang (Path : String) return Boolean is
+   --  @param Path File to inspect.
+   --  @return True when the first two bytes of Path are "#!".
+      File   : Ada.Text_IO.File_Type;
+      Buffer : String (1 .. 2);
+      Last   : Natural := 0;
+   begin
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+      if not Ada.Text_IO.End_Of_File (File) then
+         Ada.Text_IO.Get_Line (File, Buffer, Last);
+      end if;
+      Ada.Text_IO.Close (File);
+      return Last = 2 and then Buffer = "#!";
+   exception
+      when others =>
+         if Ada.Text_IO.Is_Open (File) then
+            Ada.Text_IO.Close (File);
+         end if;
+         return False;
+   end Has_Shebang;
+
+   procedure Check_Ada_Only_Tooling_In_Tree (Path : String) is
+   --  Recursively reject shell/shebang tooling below Path.
+   --  @param Path Directory tree to scan.
+      Search    : Ada.Directories.Search_Type;
+      Dir_Entry : Ada.Directories.Directory_Entry_Type;
+      Started   : Boolean := False;
+   begin
+      if not Project_Tools.Files.Directory_Exists (Path) then
+         return;
+      end if;
+
+      Ada.Directories.Start_Search
+        (Search,
+         Directory => Path,
+         Pattern   => "*",
+         Filter    =>
+           [Ada.Directories.Ordinary_File => True,
+            Ada.Directories.Directory     => True,
+            Ada.Directories.Special_File  => False]);
+      Started := True;
+
+      while Ada.Directories.More_Entries (Search) loop
+         Ada.Directories.Get_Next_Entry (Search, Dir_Entry);
+         declare
+            Name : constant String := Ada.Directories.Simple_Name (Dir_Entry);
+            Full : constant String := Ada.Directories.Full_Name (Dir_Entry);
+         begin
+            if Name = "." or else Name = ".." then
+               null;
+            elsif Ada.Directories.Kind (Dir_Entry) = Ada.Directories.Directory then
+               if not Is_Generated_Directory_Name (Name) then
+                  Check_Ada_Only_Tooling_In_Tree (Full);
+               end if;
+            elsif Has_Shell_Tooling_Extension (Name) then
+               Put_Line (Standard_Error, Full & ": shell helper tooling is not allowed");
+               Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
+               raise Program_Error;
+            elsif Has_Shebang (Full) then
+               Put_Line (Standard_Error, Full & ": shebang helper tooling is not allowed");
+               Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
+               raise Program_Error;
+            end if;
+         end;
+      end loop;
+
+      Ada.Directories.End_Search (Search);
+      Started := False;
+   exception
+      when others =>
+         if Started then
+            Ada.Directories.End_Search (Search);
+         end if;
+         raise;
+   end Check_Ada_Only_Tooling_In_Tree;
+
+   procedure Check_Ada_Only_Tooling is
+   --  Enforce the Ada-only-tooling policy over the whole project_tools tree:
+   --  reject shell scripts, shebang scripts, and packaged Python artifacts.
+      Python_Errors : Natural := 0;
+   begin
+      Check_Ada_Only_Tooling_In_Tree (Root);
+      Project_Tools.Tree_Checks.Check_No_Generated_Python (Python_Errors, Root & "/src");
+      Project_Tools.Tree_Checks.Check_No_Generated_Python (Python_Errors, Root & "/tests");
+      Project_Tools.Tree_Checks.Check_No_Generated_Python (Python_Errors, Root & "/tools");
+      Project_Tools.Tree_Checks.Check_No_Generated_Python (Python_Errors, Root & "/public_api_smoke");
+      Project_Tools.Tree_Checks.Check_No_Generated_Python (Python_Errors, Root & "/docs");
+      Project_Tools.Tree_Checks.Check_No_Generated_Python (Python_Errors, Root & "/config");
+      if Python_Errors > 0 then
+         raise Program_Error;
+      end if;
+   end Check_Ada_Only_Tooling;
+
 begin
    if not Ada.Directories.Exists (Root & "/project_tools.gpr") then
       Put_Line (Standard_Error, "check_all must be run from the project_tools root or tools directory");
@@ -64,12 +189,14 @@ begin
 
    Require_File ("src/project_tools-release_checks.ads");
    Require_File ("src/project_tools-release_checks.adb");
-   Require_File ("tools/check_generated_artifacts.sh");
-   Require_File ("tools/optional_tool.sh");
+   Require_File ("tools/src/check_generated_artifacts.adb");
+   Require_File ("tools/src/optional_tool.adb");
    Require_Text ("src/project_tools-tree_checks.ads", "Require_No_Nonempty_Stderr");
    Require_Text ("public_api_smoke/src/project_tools_public_api_smoke.adb", "Project_Tools.Release_Checks");
    Require_Text ("README.md", "Project_Tools.Release_Checks");
-   Require_Text ("README.md", "check_generated_artifacts.sh");
+   Require_Text ("README.md", "check_generated_artifacts");
+
+   Check_Ada_Only_Tooling;
 
    Run ("alr build", Root, Alr, [1 => new String'("build")]);
    Run

@@ -2,7 +2,7 @@
 
 Small reusable Ada helpers for project-local check programs.
 
-This crate intentionally provides low-level building blocks only: text searches, filesystem predicates, reusable requirement checks, release-check wrappers, Alire manifest checks, raw file prefix checks, simple file appends, generated-artifact shell checks, optional-tool shell checks, and process execution in a selected directory. Release policy, project layout, and test-suite expectations stay in each consuming project.
+This crate intentionally provides low-level building blocks only: text searches, filesystem predicates, reusable requirement checks, release-check wrappers, Alire manifest checks, raw file prefix checks, simple file appends, generated-artifact comparison, optional-tool resolution, and process execution in a selected directory. Release policy, project layout, and test-suite expectations stay in each consuming project.
 
 ## Build
 
@@ -74,9 +74,26 @@ checks when they need common filesystem, text, manifest, source-scanning, or
 process operations. Keep project-specific policy in the consuming crate: this
 crate should not know which crates a product releases, which README wording a
 project requires, or which command sequence makes a release valid. The
-`tools/check_generated_artifacts.sh` and `tools/optional_tool.sh` scripts
+`check_generated_artifacts` and `optional_tool` Ada executables (built from
+`tools/src/check_generated_artifacts.adb` and `tools/src/optional_tool.adb`)
 provide shared mechanics while the consuming project supplies its own generator
-command, artifact list, and smoke checks.
+command, artifact list, and smoke checks. These replace the former shell
+scripts so the tooling stays Ada-only, a discipline enforced by the
+project_tools release checklist itself.
+
+Usage:
+
+```sh
+# Resolve an optional tool; strict mode (CI=true or
+# PROJECT_TOOLS_OPTIONAL_STRICT=1 or BACKUP_COMPLETION_STRICT=1) fails when the
+# tool is missing, otherwise it is reported as skipped.
+tools/bin/optional_tool fish "backup fish completion smoke"
+
+# Regenerate artifacts into a temp dir (passed as $1 to GENERATE_COMMAND) and
+# byte-compare each PATH against its regenerated counterpart.
+tools/bin/check_generated_artifacts "catalogs up to date" \
+  'cldr_to_catalog --out "$1"' share/foo.catalog share/bar.catalog
+```
 
 ## Packages
 
