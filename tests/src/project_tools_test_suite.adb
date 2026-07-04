@@ -406,20 +406,36 @@ package body Project_Tools_Test_Suite is
          Runner_File                  => Root & "/runner.adb",
          Runner_Token_Prefix          => "./tools/bin/",
          Quiet                        => True);
+      --  House convention: the GNATdoc block precedes each declaration.
       Write_File
         (Root & "/api.ads",
          "package API is" & ASCII.LF
+         & "--  Transform an input value." & ASCII.LF
+         & "--  @param Input input value" & ASCII.LF
+         & "--  @param Status status output" & ASCII.LF
+         & "--  @return transformed value" & ASCII.LF
+         & "function Value (Input : Integer; Status : out Integer) return Integer;" & ASCII.LF
+         & "--  Reset internal state." & ASCII.LF
+         & "--  @param State state to reset" & ASCII.LF
+         & "procedure Reset (State : out Integer);" & ASCII.LF
+         & "private" & ASCII.LF
+         & "function Private_Value (Input : Integer) return Integer;" & ASCII.LF
+         & "end API;" & ASCII.LF);
+      Project_Tools.Ada_Source.Require_Public_GNATdoc_Tags
+        (Root & "/api.ads", Quiet => True);
+      --  Trailing-comment convention is still accepted via Tags_Before => False.
+      Write_File
+        (Root & "/api-after.ads",
+         "package API_After is" & ASCII.LF
          & "function Value (Input : Integer; Status : out Integer) return Integer;" & ASCII.LF
          & "--  @param Input input value" & ASCII.LF
          & "--  @param Status status output" & ASCII.LF
          & "--  @return transformed value" & ASCII.LF
          & "procedure Reset (State : out Integer);" & ASCII.LF
          & "--  @param State state to reset" & ASCII.LF
-         & "private" & ASCII.LF
-         & "function Private_Value (Input : Integer) return Integer;" & ASCII.LF
-         & "end API;" & ASCII.LF);
+         & "end API_After;" & ASCII.LF);
       Project_Tools.Ada_Source.Require_Public_GNATdoc_Tags
-        (Root & "/api.ads", Quiet => True);
+        (Root & "/api-after.ads", Tags_Before => False, Quiet => True);
       Write_File
         (Root & "/imports.ads",
          "with Ada.Text_IO;" & ASCII.LF
@@ -596,10 +612,23 @@ package body Project_Tools_Test_Suite is
          & "      end case;" & ASCII.LF
          & "   end Key;" & ASCII.LF
          & "end Duplicate_Returns;" & ASCII.LF);
+      Write_File
+        (Root & "/bad-gnatdoc.ads",
+         "package Bad_GNATdoc is" & ASCII.LF
+         & "--  Missing the return tag entirely." & ASCII.LF
+         & "--  @param Input input value" & ASCII.LF
+         & "function Value (Input : Integer) return Integer;" & ASCII.LF
+         & "end Bad_GNATdoc;" & ASCII.LF);
       Ada.Directories.Create_Path (Root & "/staged");
       Write_File (Root & "/staged/alire.toml", "name = ""staged""" & ASCII.LF);
 
       declare
+         procedure Missing_GNATdoc_Return is
+         begin
+            Project_Tools.Ada_Source.Require_Public_GNATdoc_Tags
+              (Root & "/bad-gnatdoc.ads", Quiet => True);
+         end Missing_GNATdoc_Return;
+
          procedure Local_Pin_In_Release is
          begin
             Project_Tools.Alire_Manifests.Require_No_Local_Pins (Root & "/pinned.toml", Quiet => True);
@@ -655,6 +684,8 @@ package body Project_Tools_Test_Suite is
               (Root & "/duplicate-returns.adb", "Key", Quiet => True);
          end Duplicate_String_Return;
       begin
+         Expect_Program_Error
+           (Missing_GNATdoc_Return'Access, "missing @return raises Program_Error");
          Expect_Program_Error (Local_Pin_In_Release'Access, "local pin rejection raises Program_Error");
          Expect_Program_Error
            (Missing_Release_Dependency'Access, "missing release dependency raises Program_Error");
@@ -1023,6 +1054,45 @@ package body Project_Tools_Test_Suite is
          Documentation_Path     => Root & "/suite/TESTING.md",
          Documented_Stem_Prefix => "- `sample_",
          Quiet                  => True);
+
+      --  Hierarchical aggregate style: section packages expose a Suite
+      --  function added via Result.Add_Test (Pkg.Suite); no docs inventory,
+      --  a support package without Suite is skipped, and a runner-like
+      --  sibling (demo_suite_tests.adb) must not trip the orphan-body scan.
+      Ada.Directories.Create_Path (Root & "/hsuite");
+      Write_File
+        (Root & "/hsuite/demo_suite-alpha.ads",
+         "with AUnit.Test_Suites;" & ASCII.LF
+         & "package Demo_Suite.Alpha is" & ASCII.LF
+         & "function Suite return AUnit.Test_Suites.Access_Test_Suite;" & ASCII.LF
+         & "end Demo_Suite.Alpha;" & ASCII.LF);
+      Write_File
+        (Root & "/hsuite/demo_suite-alpha.adb",
+         "package body Demo_Suite.Alpha is Register_Routine; end Demo_Suite.Alpha;" & ASCII.LF);
+      Write_File
+        (Root & "/hsuite/demo_suite-support.ads",
+         "package Demo_Suite.Support is X : constant Integer := 0; end Demo_Suite.Support;" & ASCII.LF);
+      Write_File
+        (Root & "/hsuite/demo_suite-support.adb",
+         "package body Demo_Suite.Support is end Demo_Suite.Support;" & ASCII.LF);
+      Write_File
+        (Root & "/hsuite/demo_suite.adb",
+         "with Demo_Suite.Alpha;" & ASCII.LF
+         & "package body Demo_Suite is" & ASCII.LF
+         & "function Suite return AUnit.Test_Suites.Access_Test_Suite is" & ASCII.LF
+         & "begin Result.Add_Test (Demo_Suite.Alpha.Suite); return Result; end Suite;" & ASCII.LF
+         & "end Demo_Suite;" & ASCII.LF);
+      Write_File
+        (Root & "/hsuite/demo_suite_tests.adb",
+         "procedure Demo_Suite_Tests is begin null; end Demo_Suite_Tests;" & ASCII.LF);
+      Project_Tools.AUnit_Checks.Require_Registered_Test_Packages
+        (Test_Dir         => Root & "/hsuite",
+         Spec_Pattern     => "demo_suite-*.ads",
+         Suite_Path       => Root & "/hsuite/demo_suite.adb",
+         Suite_Add_Prefix => "Result.Add_Test (",
+         Suite_Add_Suffix => ".Suite)",
+         Section_Marker   => "function Suite",
+         Quiet            => True);
       Delete_Tree_If_Present (Root);
    exception
       when others =>

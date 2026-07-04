@@ -32,11 +32,17 @@ package Project_Tools.Ada_Source is
    procedure Require_Public_GNATdoc_Tags
      (Spec_Path       : String;
       Stop_At_Private : Boolean := True;
+      Tags_Before     : Boolean := True;
       Quiet           : Boolean := False);
    --  Require public subprogram declarations in Spec_Path to have GNATdoc
-   --  tags for their public profile.
+   --  tags for their public profile. The default associates the doc comment
+   --  block that immediately precedes each declaration (the house convention
+   --  used by the files and guikit specs); set Tags_Before to False for specs
+   --  that place the comment block after the declaration instead.
    --  @param Spec_Path Ada package spec to scan.
    --  @param Stop_At_Private Stop scanning when a private section is reached.
+   --  @param Tags_Before Associate the preceding comment block when True,
+   --         otherwise the trailing comment block.
    --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_Only_Allowed_With_Clauses

@@ -400,6 +400,7 @@ package body Project_Tools.Ada_Source is
    procedure Require_Public_GNATdoc_Tags
      (Spec_Path       : String;
       Stop_At_Private : Boolean := True;
+      Tags_Before     : Boolean := True;
       Quiet           : Boolean := False)
    is
       File        : Ada.Text_IO.File_Type;
@@ -407,6 +408,7 @@ package body Project_Tools.Ada_Source is
       Last        : Natural;
       Pending     : Unbounded_String;
       Has_Pending : Boolean := False;
+      Preceding   : Unbounded_String;
       Errors      : Natural := 0;
 
       procedure Error (Message : String) is
@@ -602,23 +604,35 @@ package body Project_Tools.Ada_Source is
                         end;
                      end loop;
 
-                     while Next_Line (Comment_Line) loop
-                        declare
-                           Comment_Text : constant String := Trim (To_String (Comment_Line));
-                        begin
-                           if Project_Tools.Text.Starts_With (Comment_Text, "--") then
-                              Append (Comments, Comment_Text);
-                              Append (Comments, " ");
-                           else
-                              Pending := Comment_Line;
-                              Has_Pending := True;
-                              exit;
-                           end if;
-                        end;
-                     end loop;
+                     if Tags_Before then
+                        Comments := Preceding;
+                     else
+                        while Next_Line (Comment_Line) loop
+                           declare
+                              Comment_Text : constant String := Trim (To_String (Comment_Line));
+                           begin
+                              if Project_Tools.Text.Starts_With (Comment_Text, "--") then
+                                 Append (Comments, Comment_Text);
+                                 Append (Comments, " ");
+                              else
+                                 Pending := Comment_Line;
+                                 Has_Pending := True;
+                                 exit;
+                              end if;
+                           end;
+                        end loop;
+                     end if;
 
                      Check_Declaration (To_String (Declaration), To_String (Comments));
+                     Preceding := Null_Unbounded_String;
                   end;
+               elsif Project_Tools.Text.Starts_With (Trim (Text), "--") then
+                  if Tags_Before then
+                     Append (Preceding, Trim (Text));
+                     Append (Preceding, " ");
+                  end if;
+               elsif Trim (Text) /= "" then
+                  Preceding := Null_Unbounded_String;
                end if;
             end;
          end;

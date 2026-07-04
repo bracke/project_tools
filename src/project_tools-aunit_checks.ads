@@ -65,22 +65,36 @@ package Project_Tools.AUnit_Checks is
      (Test_Dir                 : String;
       Spec_Pattern             : String;
       Suite_Path               : String;
-      Documentation_Path       : String;
-      Documented_Stem_Prefix   : String;
+      Documentation_Path       : String := "";
+      Documented_Stem_Prefix   : String := "";
       Suite_Add_Prefix         : String := "Result.Add_Test (new ";
       Suite_Add_Suffix         : String := ".Test_Case)";
       Registration_Token       : String := "Register_Routine";
       Required_Stem_Suffix     : String := "_tests";
+      Section_Marker           : String := "";
       Quiet                    : Boolean := False);
-   --  Require split AUnit test packages to be registered and documented.
+   --  Require split AUnit test packages to be registered and (optionally)
+   --  documented. Both the flat "Test_Case" package style (each package added
+   --  via `Result.Add_Test (new Pkg.Test_Case)`) and the hierarchical
+   --  aggregate style used by files and guikit (each section package exposing
+   --  a Suite function added via `Result.Add_Test (Pkg.Suite)`) are supported
+   --  by tuning Suite_Add_Prefix/Suite_Add_Suffix. When Documentation_Path is
+   --  empty the inventory documentation checks are skipped. The orphan-body
+   --  scan derives its pattern from Spec_Pattern so aggregate roots and test
+   --  runners (for example tests.adb or guikit_tests.adb) are never mistaken
+   --  for section packages.
    --  @param Test_Dir Directory containing test package specs and bodies.
    --  @param Spec_Pattern Ada.Directories pattern for test package specs.
    --  @param Suite_Path Suite body that withs and adds every package.
-   --  @param Documentation_Path Markdown or text inventory file.
+   --  @param Documentation_Path Markdown or text inventory file, or "" to skip
+   --         the documentation checks entirely.
    --  @param Documented_Stem_Prefix Prefix used to recognize documented stems.
    --  @param Suite_Add_Prefix Text before the package name in suite add calls.
    --  @param Suite_Add_Suffix Text after the package name in suite add calls.
    --  @param Registration_Token Token proving the body registers routines.
    --  @param Required_Stem_Suffix Suffix required before stale docs are checked.
+   --  @param Section_Marker Token a spec must contain to be treated as a
+   --         registered section package; specs lacking it (helper/support
+   --         packages) are skipped. Empty disables the filter.
    --  @param Quiet Suppress diagnostics when True.
 end Project_Tools.AUnit_Checks;

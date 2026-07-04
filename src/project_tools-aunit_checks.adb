@@ -242,12 +242,13 @@ package body Project_Tools.AUnit_Checks is
      (Test_Dir                 : String;
       Spec_Pattern             : String;
       Suite_Path               : String;
-      Documentation_Path       : String;
-      Documented_Stem_Prefix   : String;
+      Documentation_Path       : String := "";
+      Documented_Stem_Prefix   : String := "";
       Suite_Add_Prefix         : String := "Result.Add_Test (new ";
       Suite_Add_Suffix         : String := ".Test_Case)";
       Registration_Token       : String := "Register_Routine";
       Required_Stem_Suffix     : String := "_tests";
+      Section_Marker           : String := "";
       Quiet                    : Boolean := False)
    is
       Search : Ada.Directories.Search_Type;
@@ -261,6 +262,21 @@ package body Project_Tools.AUnit_Checks is
       function Has_Prefix (Text : String; Prefix : String) return Boolean is
         (Text'Length >= Prefix'Length
          and then Text (Text'First .. Text'First + Prefix'Length - 1) = Prefix);
+
+      --  Derive the orphan-body scan pattern from the spec pattern so that
+      --  aggregate roots and test runners are never scanned as sections.
+      function Orphan_Body_Pattern return String is
+      begin
+         if Has_Suffix (Spec_Pattern, ".ads") then
+            return Spec_Pattern (Spec_Pattern'First .. Spec_Pattern'Last - 4) & ".adb";
+         else
+            return "*" & Required_Stem_Suffix & ".adb";
+         end if;
+      end Orphan_Body_Pattern;
+
+      function Is_Registered_Section (Spec_Path : String) return Boolean is
+        (Section_Marker = ""
+         or else Project_Tools.Files.File_Contains (Spec_Path, Section_Marker));
 
       procedure Require_Documented_AUnit_Tests_Exist is
          File   : Ada.Text_IO.File_Type;
@@ -338,27 +354,31 @@ package body Project_Tools.AUnit_Checks is
                Test_Pkg  : constant String :=
                  Declared_Package_Name (Spec_Path, Test_Package_Name (Name));
             begin
-               if not Ada.Directories.Exists (Body_Path) then
-                  Error (Errors, "AUnit test package spec has no body: " & Name, Quiet);
-               elsif not Project_Tools.Files.File_Contains (Body_Path, Registration_Token) then
-                  Error (Errors, "AUnit test package registers no routines: " & Stem, Quiet);
-               end if;
+               if Is_Registered_Section (Spec_Path) then
+                  if not Ada.Directories.Exists (Body_Path) then
+                     Error (Errors, "AUnit test package spec has no body: " & Name, Quiet);
+                  elsif not Project_Tools.Files.File_Contains (Body_Path, Registration_Token) then
+                     Error (Errors, "AUnit test package registers no routines: " & Stem, Quiet);
+                  end if;
 
-               if not Project_Tools.Files.File_Contains (Suite_Path, "with " & Test_Pkg & ";") then
-                  Error (Errors, "AUnit test package is not withed by suite: " & Test_Pkg, Quiet);
-               end if;
+                  if not Project_Tools.Files.File_Contains (Suite_Path, "with " & Test_Pkg & ";") then
+                     Error (Errors, "AUnit test package is not withed by suite: " & Test_Pkg, Quiet);
+                  end if;
 
-               if not Project_Tools.Files.File_Contains
-                 (Suite_Path, Suite_Add_Prefix & Test_Pkg & Suite_Add_Suffix)
-               then
-                  Error (Errors, "AUnit test package is not added to suite: " & Test_Pkg, Quiet);
-               end if;
+                  if not Project_Tools.Files.File_Contains
+                    (Suite_Path, Suite_Add_Prefix & Test_Pkg & Suite_Add_Suffix)
+                  then
+                     Error (Errors, "AUnit test package is not added to suite: " & Test_Pkg, Quiet);
+                  end if;
 
-               if not Project_Tools.Files.File_Contains (Documentation_Path, "`" & Stem & "`") then
-                  Error
-                    (Errors,
-                     "AUnit test package is not listed in " & Documentation_Path & ": " & Stem,
-                     Quiet);
+                  if Documentation_Path /= ""
+                    and then not Project_Tools.Files.File_Contains (Documentation_Path, "`" & Stem & "`")
+                  then
+                     Error
+                       (Errors,
+                        "AUnit test package is not listed in " & Documentation_Path & ": " & Stem,
+                        Quiet);
+                  end if;
                end if;
             end;
          end;
@@ -368,7 +388,7 @@ package body Project_Tools.AUnit_Checks is
       Open := False;
 
       Ada.Directories.Start_Search
-        (Search, Test_Dir, "*" & Required_Stem_Suffix & ".adb");
+        (Search, Test_Dir, Orphan_Body_Pattern);
       Open := True;
       while Ada.Directories.More_Entries (Search) loop
          declare
@@ -390,7 +410,9 @@ package body Project_Tools.AUnit_Checks is
       Ada.Directories.End_Search (Search);
       Open := False;
 
-      Require_Documented_AUnit_Tests_Exist;
+      if Documentation_Path /= "" then
+         Require_Documented_AUnit_Tests_Exist;
+      end if;
 
       if Errors > 0 then
          raise Program_Error;
