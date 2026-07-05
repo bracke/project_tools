@@ -1,9 +1,12 @@
 with Ada.Command_Line;
+with Ada.Containers.Vectors;
 with Ada.Directories;
 with Ada.Streams;
 with Ada.Strings.Unbounded;
 with Ada.Streams.Stream_IO;
 with Ada.Text_IO;
+
+with GNAT.Regexp;
 
 with Project_Tools.Text;
 
@@ -37,6 +40,32 @@ package body Project_Tools.Files is
       return Project_Tools.Text.Contains
         (Ada.Strings.Unbounded.To_String (Project_Tools.Text.Read_Text_File (Path)), Pattern);
    end File_Contains;
+
+   function Line_Contains (Path : String; Pattern : String) return Boolean is
+      File_Item : Ada.Text_IO.File_Type;
+   begin
+      if not Exists (Path) then
+         return False;
+      end if;
+
+      Ada.Text_IO.Open (File_Item, Ada.Text_IO.In_File, Path);
+      while not Ada.Text_IO.End_Of_File (File_Item) loop
+         if Project_Tools.Text.Contains
+              (Ada.Text_IO.Get_Line (File_Item), Pattern)
+         then
+            Ada.Text_IO.Close (File_Item);
+            return True;
+         end if;
+      end loop;
+      Ada.Text_IO.Close (File_Item);
+      return False;
+   exception
+      when others =>
+         if Ada.Text_IO.Is_Open (File_Item) then
+            Ada.Text_IO.Close (File_Item);
+         end if;
+         return False;
+   end Line_Contains;
 
    function Read_Raw_File (Path : String) return String is
       use Ada.Streams;
@@ -467,4 +496,60 @@ package body Project_Tools.Files is
       when others =>
          return "";
    end Find_Root_Upward;
+
+   package Path_Vectors is new Ada.Containers.Vectors
+     (Index_Type   => Positive,
+      Element_Type => Ada.Strings.Unbounded.Unbounded_String,
+      "="          => Ada.Strings.Unbounded."=");
+
+   function List_Tree
+     (Root         : String;
+      Name_Pattern : String := "*";
+      Skip_Entries : Name_List := (1 .. 0 => <>))
+      return Path_List
+   is
+      Matcher   : constant GNAT.Regexp.Regexp :=
+        GNAT.Regexp.Compile (Name_Pattern, Glob => True);
+      Collected : Path_Vectors.Vector;
+
+      procedure Walk (Directory : String) is
+         Search : Ada.Directories.Search_Type;
+         Item   : Ada.Directories.Directory_Entry_Type;
+      begin
+         if not Ada.Directories.Exists (Directory) then
+            return;
+         end if;
+         Ada.Directories.Start_Search (Search, Directory, "");
+         while Ada.Directories.More_Entries (Search) loop
+            Ada.Directories.Get_Next_Entry (Search, Item);
+            declare
+               Name : constant String := Ada.Directories.Simple_Name (Item);
+               Path : constant String := Directory & "/" & Name;
+               Kind : constant Ada.Directories.File_Kind :=
+                 Ada.Directories.Kind (Item);
+            begin
+               if Name = "." or else Name = ".."
+                 or else Contains_Name (Skip_Entries, Name)
+               then
+                  null;
+               elsif Kind = Ada.Directories.Directory then
+                  Walk (Path);
+               elsif Kind = Ada.Directories.Ordinary_File
+                 and then GNAT.Regexp.Match (Name, Matcher)
+               then
+                  Collected.Append
+                    (Ada.Strings.Unbounded.To_Unbounded_String (Path));
+               end if;
+            end;
+         end loop;
+         Ada.Directories.End_Search (Search);
+      end Walk;
+   begin
+      Walk (Root);
+      return Result : Path_List (1 .. Natural (Collected.Length)) do
+         for Index in Result'Range loop
+            Result (Index) := Collected (Index);
+         end loop;
+      end return;
+   end List_Tree;
 end Project_Tools.Files;

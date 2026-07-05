@@ -104,6 +104,23 @@ package Project_Tools.Files is
    --  @param Failure_Message Diagnostic prefix to emit on copy failure.
    --  @param Quiet Suppress diagnostics when True.
 
+   function List_Tree
+     (Root         : String;
+      Name_Pattern : String := "*";
+      Skip_Entries : Name_List := (1 .. 0 => <>))
+      return Path_List;
+   --  Recursively collect the ordinary files under Root whose simple name
+   --  matches the glob Name_Pattern (for example "*.ads"), skipping any
+   --  subdirectory whose simple name appears in Skip_Entries; "." and ".." are
+   --  always skipped. Each path is Root joined with the entry path, so a
+   --  relative Root yields relative paths. The walk is depth-first in the order
+   --  Ada.Directories reports entries, recursing into a subdirectory as soon as
+   --  it is encountered -- matching the hand-rolled scanners this replaces.
+   --  @param Root the directory to walk (relative or absolute)
+   --  @param Name_Pattern glob matched against each file's simple name
+   --  @param Skip_Entries simple names of subdirectories to skip
+   --  @return the matching file paths, Root-relative when Root is relative
+
    procedure Copy_Release_Source_Tree
      (Source_Dir      : String;
       Target_Dir      : String;
@@ -151,6 +168,16 @@ package Project_Tools.Files is
    --  @param Path Text file path to inspect.
    --  @param Line Exact line to find (compared without its terminator).
    --  @return True when Path contains a line equal to Line.
+
+   function Line_Contains (Path : String; Pattern : String) return Boolean;
+   --  Whether any single line of Path contains Pattern as a substring. Unlike
+   --  File_Contains (a whole-file match), Pattern is matched within one line, so
+   --  a Pattern spanning a line boundary never matches -- the semantics the
+   --  hand-rolled per-line source scanners rely on. A missing or unreadable
+   --  file, or a Pattern absent from every line, yields False.
+   --  @param Path Text file path to inspect.
+   --  @param Pattern Substring to search for within each individual line.
+   --  @return True when some line of Path contains Pattern.
 
    function Value_Of (Path : String; Key : String) return String;
    --  Read the value of a "Key=value" line from a simple key/value text file.
