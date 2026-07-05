@@ -116,6 +116,75 @@ package body Project_Tools.Tree_Checks is
          Error (Errors, "could not scan " & Purpose & ": " & Dir, Quiet);
    end Check_No_Forbidden_Tokens;
 
+   procedure Check_No_Forbidden_Tree_Artifacts
+     (Errors            : in out Natural;
+      Dir               : String;
+      Forbidden_Entries : Text_List;
+      Forbidden_Suffixes : Text_List;
+      Purpose           : String;
+      Quiet             : Boolean := False)
+   is
+      Search : Ada.Directories.Search_Type;
+      Dir_Entry : Ada.Directories.Directory_Entry_Type;
+
+      function Has_Suffix (Text : String; Suffix : String) return Boolean is
+        (Text'Length >= Suffix'Length
+         and then Text (Text'Last - Suffix'Length + 1 .. Text'Last) = Suffix);
+
+      function Is_Forbidden_Entry (Name : String) return Boolean is
+      begin
+         for Item of Forbidden_Entries loop
+            if Name = To_String (Item) then
+               return True;
+            end if;
+         end loop;
+
+         return False;
+      end Is_Forbidden_Entry;
+
+      function Is_Forbidden_Suffix (Name : String) return Boolean is
+      begin
+         for Suffix of Forbidden_Suffixes loop
+            if Has_Suffix (Name, To_String (Suffix)) then
+               return True;
+            end if;
+         end loop;
+
+         return False;
+      end Is_Forbidden_Suffix;
+   begin
+      Ada.Directories.Start_Search
+        (Search    => Search,
+         Directory => Dir,
+         Pattern   => "*",
+         Filter    => [Ada.Directories.Directory => True, Ada.Directories.Ordinary_File => True, others => False]);
+      while Ada.Directories.More_Entries (Search) loop
+         Ada.Directories.Get_Next_Entry (Search, Dir_Entry);
+         declare
+            Name : constant String := Ada.Directories.Simple_Name (Dir_Entry);
+            Full : constant String := Ada.Directories.Full_Name (Dir_Entry);
+         begin
+            if Name /= "." and then Name /= ".." then
+               if Is_Forbidden_Entry (Name) then
+                  Error (Errors, Purpose & " contains forbidden artifact: " & Full, Quiet);
+               elsif Ada.Directories.Kind (Dir_Entry) = Ada.Directories.Directory then
+                  Check_No_Forbidden_Tree_Artifacts
+                    (Errors, Full, Forbidden_Entries, Forbidden_Suffixes, Purpose, Quiet);
+               elsif Is_Forbidden_Suffix (Name) then
+                  Error (Errors, Purpose & " contains forbidden artifact: " & Full, Quiet);
+               end if;
+            end if;
+         end;
+      end loop;
+      Ada.Directories.End_Search (Search);
+   exception
+      when others =>
+         if Ada.Directories.More_Entries (Search) then
+            Ada.Directories.End_Search (Search);
+         end if;
+         Error (Errors, "could not scan " & Purpose & ": " & Dir, Quiet);
+   end Check_No_Forbidden_Tree_Artifacts;
+
    procedure Require_No_Nonempty_Stderr
      (Dir                            : String;
       Quiet                          : Boolean := False;

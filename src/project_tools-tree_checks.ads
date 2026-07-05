@@ -27,6 +27,21 @@ package Project_Tools.Tree_Checks is
    --  @param Exempt_Path_Token Optional path substring exempted from content-token failures.
    --  @param Quiet Suppress diagnostics when True.
 
+   procedure Check_No_Forbidden_Tree_Artifacts
+     (Errors            : in out Natural;
+      Dir               : String;
+      Forbidden_Entries : Text_List;
+      Forbidden_Suffixes : Text_List;
+      Purpose           : String;
+      Quiet             : Boolean := False);
+   --  Recursively reject directory entry names and ordinary-file suffixes below Dir.
+   --  @param Errors Error counter incremented for each forbidden artifact.
+   --  @param Dir Directory tree to inspect.
+   --  @param Forbidden_Entries Simple directory or file names to reject.
+   --  @param Forbidden_Suffixes Ordinary-file suffixes to reject.
+   --  @param Purpose Human-readable tree purpose for diagnostics.
+   --  @param Quiet Suppress diagnostics when True.
+
    procedure Require_No_Nonempty_Stderr
      (Dir                           : String;
       Quiet                         : Boolean := False;

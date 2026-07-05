@@ -117,7 +117,8 @@ checks, and a `Run` rename for process steps.
 `Project_Tools.Tree_Checks` contains recursive tree hygiene checks, including
 generated Python artifact checks, forbidden-token checks, and non-empty
 generated `.stderr` log rejection with an option for benign GNAT package-spec
-messages.
+messages. It also includes a generic forbidden entry/suffix scan for staged
+release trees.
 
 `Project_Tools.Alire_Manifests` is the stable facade for Alire manifest helpers. It is backed by two child packages:
 
