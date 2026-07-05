@@ -122,15 +122,27 @@ package body Project_Tools.Processes is
       Quiet   : Boolean := False) return Integer
    is
       Previous  : constant String := Ada.Directories.Current_Directory;
+      Temp_Dir  : constant String := "/tmp";
       FD        : GNAT.OS_Lib.File_Descriptor;
       Temp_Name : GNAT.OS_Lib.String_Access;
       Status    : Integer;
+
+      function Temp_Path return String is
+      begin
+         if Temp_Name = null then
+            return "";
+         elsif Temp_Name.all'Length > 0 and then Temp_Name.all (Temp_Name.all'First) = '/' then
+            return Temp_Name.all;
+         else
+            return Temp_Dir & "/" & Temp_Name.all;
+         end if;
+      end Temp_Path;
 
       procedure Cleanup is
          Deleted : Boolean;
       begin
          if Temp_Name /= null then
-            GNAT.OS_Lib.Delete_File (Temp_Name.all, Deleted);
+            GNAT.OS_Lib.Delete_File (Temp_Path, Deleted);
             GNAT.OS_Lib.Free (Temp_Name);
          end if;
       end Cleanup;
@@ -142,7 +154,9 @@ package body Project_Tools.Processes is
          Ada.Text_IO.Put_Line ("==> " & Label);
       end if;
 
+      Ada.Directories.Set_Directory (Temp_Dir);
       GNAT.OS_Lib.Create_Temp_Output_File (FD, Temp_Name);
+      Ada.Directories.Set_Directory (Previous);
       if FD = GNAT.OS_Lib.Invalid_FD or else Temp_Name = null then
          raise Program_Error with "could not create temporary output file";
       end if;
@@ -159,7 +173,7 @@ package body Project_Tools.Processes is
       GNAT.OS_Lib.Close (FD);
       Output :=
         Ada.Strings.Unbounded.To_Unbounded_String
-          (Project_Tools.Files.Read_Raw_File (Temp_Name.all));
+          (Project_Tools.Files.Read_Raw_File (Temp_Path));
       Cleanup;
       return Status;
    exception
