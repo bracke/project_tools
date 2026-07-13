@@ -1,6 +1,9 @@
+with "config/project_tools_config.gpr";
 library project Project_Tools is
 
-   for Source_Dirs use ("src/");
+   --  Per-OS backend directory, as cryptolib does: "is this a link" cannot be
+   --  answered portably (see Project_Tools.Links).
+   for Source_Dirs use ("src/", "src-" & Project_Tools_Config.Alire_Host_OS & "/");
    for Object_Dir use "obj";
    for Library_Dir use "lib";
    for Library_Name use "project_tools";

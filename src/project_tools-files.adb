@@ -6,8 +6,9 @@ with Ada.Strings.Unbounded;
 with Ada.Streams.Stream_IO;
 with Ada.Text_IO;
 
-with GNAT.OS_Lib;
 with GNAT.Regexp;
+
+with Project_Tools.Links;
 
 with Project_Tools.Text;
 
@@ -308,7 +309,7 @@ package body Project_Tools.Files is
       end Remove_Link;
 
    begin
-      if GNAT.OS_Lib.Is_Symbolic_Link (Path) then
+      if Project_Tools.Links.Is_Link (Path) then
          --  Checked before Exists: a dangling link does not "exist", but it is
          --  still there to be removed.
          Remove_Link (Path);
