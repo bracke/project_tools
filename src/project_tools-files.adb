@@ -6,6 +6,7 @@ with Ada.Strings.Unbounded;
 with Ada.Streams.Stream_IO;
 with Ada.Text_IO;
 
+with GNAT.OS_Lib;
 with GNAT.Regexp;
 
 with Project_Tools.Text;
@@ -280,10 +281,75 @@ package body Project_Tools.Files is
    end Copy_Release_Source_Tree;
 
    procedure Delete_Tree (Path : String) is
+      --  Ada.Directories.Delete_Tree walks INTO a symbolic link that points at a
+      --  directory, because Kind follows the link. A tree containing a link back
+      --  to one of its own ancestors therefore recurses without end -- on Windows
+      --  it grinds on until the path passes MAX_PATH and raises Use_Error, and on
+      --  any platform it risks deleting whatever the link points at, which may
+      --  sit entirely outside the tree.
+      --
+      --  So walk the tree by hand: a link is removed, never followed.
+
+      procedure Remove_Link (Target : String);
+
+      procedure Remove_Link (Target : String) is
+      begin
+         --  A link to a directory is a directory entry on Windows and a file
+         --  entry on POSIX, and only one of the two calls will take it.
+         Ada.Directories.Delete_File (Target);
+      exception
+         when others =>
+            begin
+               Ada.Directories.Delete_Directory (Target);
+            exception
+               when others =>
+                  null;
+            end;
+      end Remove_Link;
+
    begin
-      if Ada.Directories.Exists (Path) then
-         Ada.Directories.Delete_Tree (Path);
+      if GNAT.OS_Lib.Is_Symbolic_Link (Path) then
+         --  Checked before Exists: a dangling link does not "exist", but it is
+         --  still there to be removed.
+         Remove_Link (Path);
+         return;
       end if;
+
+      if not Ada.Directories.Exists (Path) then
+         return;
+      end if;
+
+      if Ada.Directories.Kind (Path) /= Ada.Directories.Directory then
+         Ada.Directories.Delete_File (Path);
+         return;
+      end if;
+
+      declare
+         Search : Ada.Directories.Search_Type;
+         Item   : Ada.Directories.Directory_Entry_Type;
+      begin
+         Ada.Directories.Start_Search
+           (Search, Path, "",
+            [Ada.Directories.Directory => True,
+             Ada.Directories.Ordinary_File => True,
+             Ada.Directories.Special_File => True]);
+
+         while Ada.Directories.More_Entries (Search) loop
+            Ada.Directories.Get_Next_Entry (Search, Item);
+
+            declare
+               Name : constant String := Ada.Directories.Simple_Name (Item);
+            begin
+               if Name /= "." and then Name /= ".." then
+                  Delete_Tree (Ada.Directories.Full_Name (Item));
+               end if;
+            end;
+         end loop;
+
+         Ada.Directories.End_Search (Search);
+      end;
+
+      Ada.Directories.Delete_Directory (Path);
    end Delete_Tree;
 
    procedure Delete_File_If_Present (Path : String) is
