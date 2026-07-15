@@ -11,18 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Ada toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gnat gprbuild gnatprove
-          sudo apt-get install -y libaunit-dev || sudo apt-get install -y libaunit22-dev || sudo apt-get install -y libaunit24-dev
+      - name: Set up Alire
+        uses: alire-project/setup-alire@v5
+        with:
+          # gnatprove comes from Alire's toolchain, not apt: Ubuntu has no reliable
+          # gnatprove package, which is why the previous apt-based job failed at install.
+          toolchain: gnat_native=15.2.1 gnatprove gprbuild
       - name: Build library
-        run: gprbuild -P project_tools.gpr
+        # Generates config/project_tools_config.gpr, which project_tools.gpr withs and
+        # which is gitignored (Alire-generated). A raw gprbuild would fail without it.
+        run: alr --non-interactive build
       - name: Run GNATprove
-        run: gnatprove -P project_tools.gpr --level=0 --mode=check
+        run: alr exec -- gnatprove -P project_tools.gpr --level=0 --mode=check
       - name: Build tests
-        run: gprbuild -P tests/project_tools_tests.gpr
+        # tests is its own Alire root (it depends on aunit), so it builds from there.
+        working-directory: tests
+        run: alr --non-interactive build
       - name: Run tests
         run: ./tests/bin/project_tools_tests
       - name: Build public API smoke
-        run: gprbuild -P public_api_smoke/project_tools_public_api_smoke.gpr
+        run: alr exec -- gprbuild -P public_api_smoke/project_tools_public_api_smoke.gpr
