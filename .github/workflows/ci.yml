@@ -14,9 +14,13 @@ jobs:
       - name: Set up Alire
         uses: alire-project/setup-alire@v5
         with:
-          # gnatprove comes from Alire's toolchain, not apt: Ubuntu has no reliable
-          # gnatprove package, which is why the previous apt-based job failed at install.
-          toolchain: gnat_native=15.2.1 gnatprove gprbuild
+          toolchain: gnat_native=15.2.1 gprbuild
+      - name: Install GNATprove
+        # gnatprove is a regular Alire crate, not a toolchain component, so it installs
+        # separately (apt has no reliable gnatprove package -- the old cause of failure).
+        run: |
+          alr install gnatprove
+          echo "$HOME/.alire/bin" >> "$GITHUB_PATH"
       - name: Build library
         # Generates config/project_tools_config.gpr, which project_tools.gpr withs and
         # which is gitignored (Alire-generated). A raw gprbuild would fail without it.
