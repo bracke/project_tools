@@ -231,6 +231,25 @@ package body Project_Tools.Tree_Checks is
             return False;
       end Is_Benign_Package_Spec_Stderr;
 
+      function First_Line (Path : String) return String is
+         File   : Ada.Text_IO.File_Type;
+         Buffer : String (1 .. 256);
+         Last   : Natural := 0;
+      begin
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+         if not Ada.Text_IO.End_Of_File (File) then
+            Ada.Text_IO.Get_Line (File, Buffer, Last);
+         end if;
+         Ada.Text_IO.Close (File);
+         return Buffer (1 .. Last);
+      exception
+         when others =>
+            if Ada.Text_IO.Is_Open (File) then
+               Ada.Text_IO.Close (File);
+            end if;
+            return "";
+      end First_Line;
+
       procedure Scan (Path : String) is
          Search : Ada.Directories.Search_Type;
          Open   : Boolean := False;
@@ -261,7 +280,11 @@ package body Project_Tools.Tree_Checks is
                          (not Allow_GNAT_Package_Spec_Stderr
                           or else not Is_Benign_Package_Spec_Stderr (Full, Name))
                      then
-                        Error (Errors, "generated stderr log is non-empty: " & Full, Quiet);
+                        Error
+                          (Errors,
+                           "generated stderr log is non-empty: " & Full
+                           & " -- first line: " & First_Line (Full),
+                           Quiet);
                      end if;
                   end if;
                end;
