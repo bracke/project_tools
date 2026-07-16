@@ -250,6 +250,37 @@ package body Project_Tools.Tree_Checks is
             return "";
       end First_Line;
 
+      --  gnatprove writes purely informational notes to stderr at higher levels -- e.g.
+      --  "info: cannot unroll loop (too many loop iterations)". It still exits 0, and an
+      --  info note is not a warning or an error, so a stderr log that is nothing but info
+      --  lines is benign.
+      function Is_Info_Only_Stderr (Path : String) return Boolean is
+         File   : Ada.Text_IO.File_Type;
+         Buffer : String (1 .. 1024);
+         Last   : Natural;
+         Any    : Boolean := False;
+      begin
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+         while not Ada.Text_IO.End_Of_File (File) loop
+            Ada.Text_IO.Get_Line (File, Buffer, Last);
+            if Last > 0 then
+               Any := True;
+               if not Project_Tools.Text.Contains (Buffer (1 .. Last), "info:") then
+                  Ada.Text_IO.Close (File);
+                  return False;
+               end if;
+            end if;
+         end loop;
+         Ada.Text_IO.Close (File);
+         return Any;
+      exception
+         when others =>
+            if Ada.Text_IO.Is_Open (File) then
+               Ada.Text_IO.Close (File);
+            end if;
+            return False;
+      end Is_Info_Only_Stderr;
+
       procedure Scan (Path : String) is
          Search : Ada.Directories.Search_Type;
          Open   : Boolean := False;
@@ -279,6 +310,7 @@ package body Project_Tools.Tree_Checks is
                        and then
                          (not Allow_GNAT_Package_Spec_Stderr
                           or else not Is_Benign_Package_Spec_Stderr (Full, Name))
+                       and then not Is_Info_Only_Stderr (Full)
                      then
                         Error
                           (Errors,
