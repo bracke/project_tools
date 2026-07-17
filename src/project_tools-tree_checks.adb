@@ -312,7 +312,13 @@ package body Project_Tools.Tree_Checks is
                begin
                   if Name /= "." and then Name /= ".." then
                      if Ada.Directories.Kind (Item) = Ada.Directories.Directory then
-                        Scan (Full);
+                        --  The "gnatprove" output tree holds per-unit .stderr logs
+                        --  of purely informational proof notes (unrolling, inlining,
+                        --  SPARK_Mode). gnatprove's own exit status already gates real
+                        --  errors, so skip the whole tree rather than police its notes.
+                        if Name /= "gnatprove" then
+                           Scan (Full);
+                        end if;
                      elsif Project_Tools.Text.Contains (Name, ".stderr")
                        and then Ada.Directories.Size (Full) > 0
                        and then

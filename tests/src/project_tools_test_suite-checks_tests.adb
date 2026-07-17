@@ -415,6 +415,15 @@ package body Project_Tools_Test_Suite.Checks_Tests is
          Assert (Raised, "a real warning stderr line is still rejected");
       end;
 
+      --  The gnatprove output tree is skipped wholesale: even a warning-looking
+      --  line under a "gnatprove" directory is not flagged, because gnatprove's
+      --  exit status already gates real errors.
+      Ada.Directories.Create_Path (Root & "/staged/obj/gnatprove");
+      Write_File
+        (Root & "/staged/obj/gnatprove/unit.adb.stderr",
+         "unit.adb:1:1: warning: this would trip a normal scan" & ASCII.LF);
+      Project_Tools.Tree_Checks.Require_No_Nonempty_Stderr (Root & "/staged", Quiet => True);
+
       Write_File (Root & "/clean/script.py", "print('x')" & ASCII.LF);
       Project_Tools.Tree_Checks.Check_No_Generated_Python (Errors, Root & "/clean", Quiet => True);
       Assert (Errors = 1, "python artifact increments hygiene errors");
