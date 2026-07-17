@@ -390,6 +390,31 @@ package body Project_Tools_Test_Suite.Checks_Tests is
         (Root & "/clean",
          Quiet                         => True,
          Allow_GNAT_Package_Spec_Stderr => True);
+
+      --  A gnatprove info note spans a primary "info:" line plus indented
+      --  continuation text; the whole file is benign and must not be flagged.
+      Ada.Directories.Create_Path (Root & "/prove");
+      Write_File
+        (Root & "/prove/unit.adb.stderr",
+         "unit.adb:5:18: info: SPARK_Mode not applied to this compilation unit" & ASCII.LF
+         & "  only enclosed declarations with SPARK_Mode will be analyzed" & ASCII.LF);
+      Project_Tools.Tree_Checks.Require_No_Nonempty_Stderr (Root & "/prove", Quiet => True);
+
+      --  A real warning at column 1 is still rejected.
+      Write_File
+        (Root & "/prove/bad.adb.stderr", "bad.adb:1:1: warning: dubious" & ASCII.LF);
+      declare
+         Raised : Boolean := False;
+      begin
+         begin
+            Project_Tools.Tree_Checks.Require_No_Nonempty_Stderr (Root & "/prove", Quiet => True);
+         exception
+            when Program_Error =>
+               Raised := True;
+         end;
+         Assert (Raised, "a real warning stderr line is still rejected");
+      end;
+
       Write_File (Root & "/clean/script.py", "print('x')" & ASCII.LF);
       Project_Tools.Tree_Checks.Check_No_Generated_Python (Errors, Root & "/clean", Quiet => True);
       Assert (Errors = 1, "python artifact increments hygiene errors");

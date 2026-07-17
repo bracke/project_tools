@@ -265,7 +265,15 @@ package body Project_Tools.Tree_Checks is
             Ada.Text_IO.Get_Line (File, Buffer, Last);
             if Last > 0 then
                Any := True;
-               if not Project_Tools.Text.Contains (Buffer (1 .. Last), "info:") then
+               --  A gnatprove info note can span several lines: the first carries
+               --  "info:", the rest are indented continuation text (e.g. "  only
+               --  enclosed declarations with SPARK_Mode will be analyzed"). Those
+               --  continuations stay benign; a real warning or error is never
+               --  indented, so a non-info line at column 1 is still rejected.
+               if not Project_Tools.Text.Contains (Buffer (1 .. Last), "info:")
+                 and then Buffer (1) /= ' '
+                 and then Buffer (1) /= Character'Val (9)
+               then
                   Ada.Text_IO.Close (File);
                   return False;
                end if;
