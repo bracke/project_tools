@@ -40,10 +40,26 @@ package body Project_Tools.Generated_Artifacts is
       Manifest_Path   : String;
       Expected_Count  : Natural;
       Hash            : Hash_Function;
+      Allowed_Kinds   : String_List := [];
       Quiet           : Boolean := False)
    is
       Manifest : constant String := Read_File (Root & "/" & Manifest_Path);
       Count    : Natural := 0;
+
+      function Is_Allowed_Kind (Kind : String) return Boolean is
+      begin
+         if Allowed_Kinds'Length = 0 then
+            return True;
+         end if;
+
+         for Allowed of Allowed_Kinds loop
+            if Allowed /= null and then Kind = Allowed.all then
+               return True;
+            end if;
+         end loop;
+
+         return False;
+      end Is_Allowed_Kind;
 
       procedure Check_Entry (Entry_Pos : Positive) is
          Path : constant String :=
@@ -77,8 +93,12 @@ package body Project_Tools.Generated_Artifacts is
          if Path = "" or else Kind = "" or else Owner = "" or else Source = ""
            or else Currentness = "" or else Coverage = "" or else Marker = ""
            or else Expected_Lines = 0 or else SHA256 = ""
-         then
+        then
             Error (Errors, "generated-data manifest entry is incomplete", Quiet);
+         elsif not Is_Allowed_Kind (Kind) then
+            Error
+              (Errors, "generated-data manifest kind is not allowed: " & Kind,
+               Quiet);
          elsif not Project_Tools.Files.File_Exists (Root & "/" & Path) then
             Error (Errors, "missing required file: " & Path, Quiet);
          else

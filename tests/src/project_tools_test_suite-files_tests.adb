@@ -428,6 +428,36 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Assert (Errors = 0, "structural budget manifest accepts matching files");
       end;
 
+      Ada.Directories.Create_Path (Root & "/tests/src");
+      Write_File
+        (Root & "/tests/src/example-tests.adb",
+         "procedure Example_Tests is" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   null;" & ASCII.LF
+         & "end Example_Tests;" & ASCII.LF);
+      Write_File
+        (Root & "/tests/src/example-tests-test_case.adb",
+         "separate (Example_Tests)" & ASCII.LF
+         & "procedure Test_Case is" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   null;" & ASCII.LF
+         & "end Test_Case;" & ASCII.LF);
+      Write_File
+        (Root & "/test-budgets.toml",
+         "[[suite]]" & ASCII.LF
+         & "prefix = ""tests/src/example-tests""" & ASCII.LF
+         & "parent_max_lines = 8" & ASCII.LF
+         & "subunit_max_lines = 8" & ASCII.LF
+         & "usecase = ""fixture tests""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Source_Budgets.Check_Test_Source_Budgets
+           (Errors, Root, "test-budgets.toml", "tests/src",
+            "example-tests*.adb", 1, Quiet => True);
+         Assert (Errors = 0, "test source budget manifest accepts matching files");
+      end;
+
       Write_File
         (Root & "/src/generated.adb",
          "--  generated data marker" & ASCII.LF
@@ -451,8 +481,18 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Errors : Natural := 0;
       begin
          Project_Tools.Generated_Artifacts.Check_Data_Manifest
-           (Errors, Root, "generated.toml", 1, Toy_Hash'Access, Quiet => True);
+           (Errors, Root, "generated.toml", 1, Toy_Hash'Access,
+            Allowed_Kinds => [1 => new String'("table")], Quiet => True);
          Assert (Errors = 0, "generated artifact manifest accepts matching metadata");
+      end;
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Generated_Artifacts.Check_Data_Manifest
+           (Errors, Root, "generated.toml", 1, Toy_Hash'Access,
+            Allowed_Kinds => [1 => new String'("other")], Quiet => True);
+         Assert (Errors > 0, "generated artifact manifest rejects disallowed kinds");
+         Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
       end;
 
       Write_File (Root & "/doc.md", "generated doc" & ASCII.LF);

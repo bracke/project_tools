@@ -22,4 +22,18 @@ package Project_Tools.Source_Budgets is
    --  Check a manifest with path, target_lines, max_lines,
    --  min_headroom_lines, max_bytes, split_prefix, min_split_bodies, and
    --  usecase fields.
+
+   procedure Check_Test_Source_Budgets
+     (Errors          : in out Natural;
+      Root            : String;
+      Manifest_Path   : String;
+      Test_Source_Dir : String;
+      File_Pattern    : String;
+      Minimum_Entries : Natural;
+      Purpose         : String := "test source budget";
+      Quiet           : Boolean := False);
+   --  Check a manifest with prefix, parent_max_lines, subunit_max_lines, and
+   --  usecase fields. The longest matching prefix selects the applicable
+   --  budget. Files whose simple name contains "-test_" or "-check_" are
+   --  treated as subunits.
 end Project_Tools.Source_Budgets;

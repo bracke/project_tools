@@ -213,4 +213,136 @@ package body Project_Tools.Source_Budgets is
            (Errors, Purpose & " manifest covers too few entries", Quiet);
       end if;
    end Check_Structural_Baseline;
+
+   procedure Check_Test_Source_Budgets
+     (Errors          : in out Natural;
+      Root            : String;
+      Manifest_Path   : String;
+      Test_Source_Dir : String;
+      File_Pattern    : String;
+      Minimum_Entries : Natural;
+      Purpose         : String := "test source budget";
+      Quiet           : Boolean := False)
+   is
+      Manifest : constant String :=
+        Ada.Strings.Unbounded.To_String
+          (Project_Tools.Text.Read_Text_File (Root & "/" & Manifest_Path));
+      Search       : Ada.Directories.Search_Type;
+      Search_Open  : Boolean := False;
+      Item         : Ada.Directories.Directory_Entry_Type;
+      Budget_Count : Natural := 0;
+
+      function Is_Subunit_Source (Name : String) return Boolean is
+        (Project_Tools.Text.Contains (Name, "-test_")
+         or else Project_Tools.Text.Contains (Name, "-check_"));
+
+      procedure Count_Budget (Entry_Pos : Positive) is
+         Prefix : constant String :=
+           Project_Tools.TOML.String_Value_After
+             (Manifest, "prefix = ", Entry_Pos);
+         Parent_Max : constant Natural :=
+           Project_Tools.TOML.Natural_Value_After
+             (Manifest, "parent_max_lines = ", Entry_Pos);
+         Subunit_Max : constant Natural :=
+           Project_Tools.TOML.Natural_Value_After
+             (Manifest, "subunit_max_lines = ", Entry_Pos);
+         Usecase : constant String :=
+           Project_Tools.TOML.String_Value_After
+             (Manifest, "usecase = ", Entry_Pos);
+      begin
+         if Prefix = "" or else Parent_Max = 0 or else Subunit_Max = 0
+           or else Usecase = ""
+         then
+            Error (Errors, Purpose & " entry is incomplete", Quiet);
+         else
+            Budget_Count := Budget_Count + 1;
+         end if;
+      end Count_Budget;
+
+      procedure Count_Budgets is new Project_Tools.TOML.Iterate_Section
+        (Count_Budget);
+
+      function Budget_For
+        (Relative_Path : String;
+         Is_Subunit    : Boolean)
+         return Natural
+      is
+         Best_Length : Natural := 0;
+         Best_Max    : Natural := 0;
+
+         procedure Consider_Budget (Entry_Pos : Positive) is
+            Prefix : constant String :=
+              Project_Tools.TOML.String_Value_After
+                (Manifest, "prefix = ", Entry_Pos);
+            Parent_Max : constant Natural :=
+              Project_Tools.TOML.Natural_Value_After
+                (Manifest, "parent_max_lines = ", Entry_Pos);
+            Subunit_Max : constant Natural :=
+              Project_Tools.TOML.Natural_Value_After
+                (Manifest, "subunit_max_lines = ", Entry_Pos);
+         begin
+            if Prefix /= ""
+              and then Project_Tools.Text.Starts_With (Relative_Path, Prefix)
+              and then Prefix'Length > Best_Length
+            then
+               Best_Length := Prefix'Length;
+               Best_Max := (if Is_Subunit then Subunit_Max else Parent_Max);
+            end if;
+         end Consider_Budget;
+
+         procedure Consider_Budgets is new Project_Tools.TOML.Iterate_Section
+           (Consider_Budget);
+      begin
+         Consider_Budgets (Manifest, "suite");
+         return Best_Max;
+      end Budget_For;
+   begin
+      Count_Budgets (Manifest, "suite");
+
+      if Budget_Count < Minimum_Entries then
+         Error (Errors, Purpose & " manifest covers too few suites", Quiet);
+      end if;
+
+      Ada.Directories.Start_Search
+        (Search    => Search,
+         Directory => Root & "/" & Test_Source_Dir,
+         Pattern   => File_Pattern,
+         Filter    => [Ada.Directories.Ordinary_File => True, others => False]);
+      Search_Open := True;
+
+      while Ada.Directories.More_Entries (Search) loop
+         Ada.Directories.Get_Next_Entry (Search, Item);
+         declare
+            Name : constant String := Ada.Directories.Simple_Name (Item);
+            Relative_Path : constant String := Test_Source_Dir & "/" & Name;
+            Lines : constant Natural :=
+              Line_Count
+                (Ada.Strings.Unbounded.To_String
+                   (Project_Tools.Text.Read_Text_File
+                      (Root & "/" & Relative_Path)));
+            Max_Lines : constant Natural :=
+              Budget_For (Relative_Path, Is_Subunit_Source (Name));
+         begin
+            if Max_Lines = 0 then
+               Error
+                 (Errors, Purpose & " missing for " & Relative_Path, Quiet);
+            elsif Lines > Max_Lines then
+               Error
+                 (Errors, Purpose & " size guard exceeded for "
+                  & Relative_Path, Quiet);
+            end if;
+         end;
+      end loop;
+
+      Ada.Directories.End_Search (Search);
+      Search_Open := False;
+   exception
+      when Constraint_Error
+         | Ada.Directories.Name_Error
+         | Ada.Directories.Use_Error =>
+         if Search_Open then
+            Ada.Directories.End_Search (Search);
+         end if;
+         raise;
+   end Check_Test_Source_Budgets;
 end Project_Tools.Source_Budgets;
