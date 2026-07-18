@@ -290,6 +290,13 @@ package body Project_Tools_Test_Suite.Files_Tests is
          & "      case Id is" & ASCII.LF
          & "         when others => return ""case fallback"";" & ASCII.LF
          & "      end case;" & ASCII.LF
+         & "      case Id is" & ASCII.LF
+         & "         when 1 =>" & ASCII.LF
+         & "            case Id + 1 is" & ASCII.LF
+         & "               when others => return ""nested generated fallback"";" & ASCII.LF
+         & "            end case;" & ASCII.LF
+         & "         when others => return ""outer generated fallback"";" & ASCII.LF
+         & "      end case;" & ASCII.LF
          & "   exception" & ASCII.LF
          & "      when others => null; -- intentional silent recovery" & ASCII.LF
          & "   end Label;" & ASCII.LF
@@ -363,12 +370,29 @@ package body Project_Tools_Test_Suite.Files_Tests is
            "[[entry]]" & ASCII.LF
            & "name = ""alpha""" & ASCII.LF
            & "count = 12" & ASCII.LF
+           & "enabled = true" & ASCII.LF
+           & "disabled = false" & ASCII.LF
+           & "broken = maybe" & ASCII.LF
            & ASCII.LF
            & "[[entry]]" & ASCII.LF
            & "name = ""beta""" & ASCII.LF;
          Sections : Natural := 0;
 
          procedure Count_Entry (Entry_Pos : Positive) is
+            use type Project_Tools.TOML.Boolean_Parse_Status;
+
+            Enabled : constant Project_Tools.TOML.Boolean_Parse_Result :=
+              Project_Tools.TOML.Parse_Boolean_After
+                (TOML_Text, "enabled = ", Entry_Pos);
+            Disabled : constant Project_Tools.TOML.Boolean_Parse_Result :=
+              Project_Tools.TOML.Parse_Boolean_After
+                (TOML_Text, "disabled = ", Entry_Pos);
+            Broken : constant Project_Tools.TOML.Boolean_Parse_Result :=
+              Project_Tools.TOML.Parse_Boolean_After
+                (TOML_Text, "broken = ", Entry_Pos);
+            Missing : constant Project_Tools.TOML.Boolean_Parse_Result :=
+              Project_Tools.TOML.Parse_Boolean_After
+                (TOML_Text, "missing = ", Entry_Pos);
          begin
             Sections := Sections + 1;
             if Sections = 1 then
@@ -380,6 +404,20 @@ package body Project_Tools_Test_Suite.Files_Tests is
                  (Project_Tools.TOML.Natural_Value_After
                     (TOML_Text, "count = ", Entry_Pos) = 12,
                   "TOML natural values are parsed from a section");
+               Assert
+                 (Enabled.Status = Project_Tools.TOML.Parsed_Boolean
+                  and then Enabled.Value,
+                  "TOML true boolean values are parsed from a section");
+               Assert
+                 (Disabled.Status = Project_Tools.TOML.Parsed_Boolean
+                  and then not Disabled.Value,
+                  "TOML false boolean values are parsed from a section");
+               Assert
+                 (Broken.Status = Project_Tools.TOML.Malformed_Boolean,
+                  "TOML malformed boolean values are reported");
+               Assert
+                 (Missing.Status = Project_Tools.TOML.Missing_Boolean,
+                  "TOML missing boolean values are reported");
             end if;
          end Count_Entry;
 

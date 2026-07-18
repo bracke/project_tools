@@ -88,6 +88,43 @@ package body Project_Tools.TOML is
          return (Status => Malformed_String, Value => Null_Unbounded_String);
    end Parse_String_After;
 
+   function Parse_Boolean_After
+     (Text : String;
+      Key  : String;
+      From : Positive)
+      return Boolean_Parse_Result
+   is
+      Key_Pos : constant Natural :=
+        Ada.Strings.Fixed.Index (Text, Key, From => From);
+   begin
+      if Key_Pos = 0 then
+         return (Status => Missing_Boolean, Value => False);
+      end if;
+
+      declare
+         First : Natural := Key_Pos + Key'Length;
+      begin
+         while First <= Text'Last and then Text (First) = ' ' loop
+            First := First + 1;
+         end loop;
+
+         if First + 3 <= Text'Last
+           and then Text (First .. First + 3) = "true"
+         then
+            return (Status => Parsed_Boolean, Value => True);
+         elsif First + 4 <= Text'Last
+           and then Text (First .. First + 4) = "false"
+         then
+            return (Status => Parsed_Boolean, Value => False);
+         else
+            return (Status => Malformed_Boolean, Value => False);
+         end if;
+      end;
+   exception
+      when Constraint_Error =>
+         return (Status => Malformed_Boolean, Value => False);
+   end Parse_Boolean_After;
+
    function Natural_Value_After
      (Text : String;
       Key  : String;

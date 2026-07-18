@@ -23,6 +23,16 @@ package Project_Tools.TOML is
       Value  : Unbounded_String;
    end record;
 
+   type Boolean_Parse_Status is
+     (Parsed_Boolean,
+      Missing_Boolean,
+      Malformed_Boolean);
+
+   type Boolean_Parse_Result is record
+      Status : Boolean_Parse_Status := Missing_Boolean;
+      Value  : Boolean := False;
+   end record;
+
    function Parse_Natural_After
      (Text : String;
       Key  : String;
@@ -36,6 +46,13 @@ package Project_Tools.TOML is
       From : Positive)
       return String_Parse_Result;
    --  Parse a quoted string value after Key at or after From.
+
+   function Parse_Boolean_After
+     (Text : String;
+      Key  : String;
+      From : Positive)
+      return Boolean_Parse_Result;
+   --  Parse a TOML boolean value after Key at or after From.
 
    function Natural_Value_After
      (Text : String;
