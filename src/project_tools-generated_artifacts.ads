@@ -9,10 +9,13 @@ package Project_Tools.Generated_Artifacts is
       Expected_Count  : Natural;
       Hash            : Hash_Function;
       Allowed_Kinds   : String_List := [];
+      Max_Shard_Lines : Natural := 0;
       Quiet           : Boolean := False);
    --  Validate generated/native artifact metadata, marker, line count, and
    --  hash snapshot. When Allowed_Kinds is nonempty, every kind must match
-   --  one of those values.
+   --  one of those values. When Max_Shard_Lines is nonzero, `*-shard` kinds
+   --  must stay within that line cap and have a non-shard parent artifact with
+   --  matching owner, source, and marker metadata.
 
    procedure Print_Data_Manifest
      (Root          : String;

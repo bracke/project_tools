@@ -427,6 +427,38 @@ package body Project_Tools_Test_Suite.Files_Tests is
            (Errors, Root, "structural.toml", 1, Quiet => True);
          Assert (Errors = 0, "structural budget manifest accepts matching files");
       end;
+      Write_File
+        (Root & "/src/large_unbudgeted.ads",
+         "package Large_Unbudgeted is" & ASCII.LF
+         & "   X : constant Natural := 1;" & ASCII.LF
+         & "   Y : constant Natural := 2;" & ASCII.LF
+         & "end Large_Unbudgeted;" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Source_Budgets.Check_Large_Source_Budget_Coverage
+           (Errors, Root, "structural.toml", "src", 4, Quiet => True);
+         Assert
+           (Errors > 0,
+            "large source coverage rejects unbudgeted source files");
+         Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
+      end;
+      Write_File
+        (Root & "/facades.toml",
+         "[[facade]]" & ASCII.LF
+         & "path = ""src/large_unbudgeted.ads""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Source_Budgets.Check_Large_Source_Budget_Coverage
+           (Errors, Root, "structural.toml", "src", 4,
+            Secondary_Manifest_Path => "facades.toml",
+            Secondary_Section       => "facade",
+            Quiet                   => True);
+         Assert
+           (Errors = 0,
+            "large source coverage accepts secondary manifest ownership");
+      end;
 
       Ada.Directories.Create_Path (Root & "/tests/src");
       Write_File
@@ -493,6 +525,50 @@ package body Project_Tools_Test_Suite.Files_Tests is
             Allowed_Kinds => [1 => new String'("other")], Quiet => True);
          Assert (Errors > 0, "generated artifact manifest rejects disallowed kinds");
          Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
+      end;
+      Write_File
+        (Root & "/src/generated_shard.adb",
+         "--  generated data marker" & ASCII.LF
+         & "package body Generated_Shard is end Generated_Shard;" & ASCII.LF);
+      Write_File
+        (Root & "/generated-shard.toml",
+         "[[artifact]]" & ASCII.LF
+         & "path = ""src/generated.adb""" & ASCII.LF
+         & "kind = ""table""" & ASCII.LF
+         & "owner = ""test""" & ASCII.LF
+         & "source = ""fixture""" & ASCII.LF
+         & "currentness = ""checked""" & ASCII.LF
+         & "coverage = ""covered""" & ASCII.LF
+         & "marker = ""generated data marker""" & ASCII.LF
+         & "line_count = 2" & ASCII.LF
+         & "sha256 = """ & Toy_Hash
+           ("--  generated data marker" & ASCII.LF
+            & "package body Generated is end Generated;" & ASCII.LF)
+         & """" & ASCII.LF
+         & ASCII.LF
+         & "[[artifact]]" & ASCII.LF
+         & "path = ""src/generated_shard.adb""" & ASCII.LF
+         & "kind = ""table-shard""" & ASCII.LF
+         & "owner = ""test""" & ASCII.LF
+         & "source = ""fixture""" & ASCII.LF
+         & "currentness = ""checked""" & ASCII.LF
+         & "coverage = ""covered shard""" & ASCII.LF
+         & "marker = ""generated data marker""" & ASCII.LF
+         & "line_count = 2" & ASCII.LF
+         & "sha256 = """ & Toy_Hash
+           ("--  generated data marker" & ASCII.LF
+            & "package body Generated_Shard is end Generated_Shard;"
+            & ASCII.LF)
+         & """" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Generated_Artifacts.Check_Data_Manifest
+           (Errors, Root, "generated-shard.toml", 2, Toy_Hash'Access,
+            Max_Shard_Lines => 10, Quiet => True);
+         Assert
+           (Errors = 0,
+            "generated artifact manifest accepts shard with matching parent");
       end;
 
       Write_File (Root & "/doc.md", "generated doc" & ASCII.LF);

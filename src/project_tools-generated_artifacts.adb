@@ -41,6 +41,7 @@ package body Project_Tools.Generated_Artifacts is
       Expected_Count  : Natural;
       Hash            : Hash_Function;
       Allowed_Kinds   : String_List := [];
+      Max_Shard_Lines : Natural := 0;
       Quiet           : Boolean := False)
    is
       Manifest : constant String := Read_File (Root & "/" & Manifest_Path);
@@ -60,6 +61,64 @@ package body Project_Tools.Generated_Artifacts is
 
          return False;
       end Is_Allowed_Kind;
+
+      function Is_Shard_Kind (Kind : String) return Boolean is
+         Suffix : constant String := "-shard";
+      begin
+         return Kind'Length > Suffix'Length
+           and then Kind (Kind'Last - Suffix'Length + 1 .. Kind'Last) =
+             Suffix;
+      end Is_Shard_Kind;
+
+      function Parent_Kind (Kind : String) return String is
+         Suffix : constant String := "-shard";
+      begin
+         if Is_Shard_Kind (Kind) then
+            return Kind (Kind'First .. Kind'Last - Suffix'Length);
+         else
+            return Kind;
+         end if;
+      end Parent_Kind;
+
+      function Has_Shared_Metadata_Parent
+        (Kind   : String;
+         Owner  : String;
+         Source : String;
+         Marker : String)
+         return Boolean
+      is
+         Parent : constant String := Parent_Kind (Kind);
+         Found  : Boolean := False;
+
+         procedure Check_Parent (Entry_Pos : Positive) is
+            Entry_Kind : constant String :=
+              Project_Tools.TOML.String_Value_After
+                (Manifest, "kind = ", Entry_Pos);
+            Entry_Owner : constant String :=
+              Project_Tools.TOML.String_Value_After
+                (Manifest, "owner = ", Entry_Pos);
+            Entry_Source : constant String :=
+              Project_Tools.TOML.String_Value_After
+                (Manifest, "source = ", Entry_Pos);
+            Entry_Marker : constant String :=
+              Project_Tools.TOML.String_Value_After
+                (Manifest, "marker = ", Entry_Pos);
+         begin
+            if Entry_Kind = Parent
+              and then Entry_Owner = Owner
+              and then Entry_Source = Source
+              and then Entry_Marker = Marker
+            then
+               Found := True;
+            end if;
+         end Check_Parent;
+
+         procedure Check_Parents is new Project_Tools.TOML.Iterate_Section
+           (Check_Parent);
+      begin
+         Check_Parents (Manifest, "artifact");
+         return Found;
+      end Has_Shared_Metadata_Parent;
 
       procedure Check_Entry (Entry_Pos : Positive) is
          Path : constant String :=
@@ -98,6 +157,24 @@ package body Project_Tools.Generated_Artifacts is
          elsif not Is_Allowed_Kind (Kind) then
             Error
               (Errors, "generated-data manifest kind is not allowed: " & Kind,
+               Quiet);
+         elsif Max_Shard_Lines > 0
+           and then Is_Shard_Kind (Kind)
+           and then Expected_Lines > Max_Shard_Lines
+         then
+            Error
+              (Errors,
+               "generated-data shard line budget exceeded for " & Path,
+               Quiet);
+         elsif Max_Shard_Lines > 0
+           and then Is_Shard_Kind (Kind)
+           and then not Has_Shared_Metadata_Parent
+             (Kind, Owner, Source, Marker)
+         then
+            Error
+              (Errors,
+               "generated-data shard lacks matching parent artifact for "
+               & Path,
                Quiet);
          elsif not Project_Tools.Files.File_Exists (Root & "/" & Path) then
             Error (Errors, "missing required file: " & Path, Quiet);

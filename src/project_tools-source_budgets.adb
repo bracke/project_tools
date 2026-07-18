@@ -345,4 +345,122 @@ package body Project_Tools.Source_Budgets is
          end if;
          raise;
    end Check_Test_Source_Budgets;
+
+   procedure Check_Large_Source_Budget_Coverage
+     (Errors          : in out Natural;
+      Root            : String;
+      Manifest_Path   : String;
+      Source_Dir      : String;
+      Minimum_Lines   : Natural;
+      Purpose         : String := "large source budget coverage";
+      Section         : String := "body";
+      Secondary_Manifest_Path : String := "";
+      Secondary_Section       : String := "facade";
+      Tertiary_Manifest_Path  : String := "";
+      Tertiary_Section        : String := "artifact";
+      Quiet           : Boolean := False)
+   is
+      Manifest : constant String :=
+        Ada.Strings.Unbounded.To_String
+          (Project_Tools.Text.Read_Text_File (Root & "/" & Manifest_Path));
+      Secondary_Manifest : constant String :=
+        (if Secondary_Manifest_Path = ""
+         then ""
+         else Ada.Strings.Unbounded.To_String
+           (Project_Tools.Text.Read_Text_File
+              (Root & "/" & Secondary_Manifest_Path)));
+      Tertiary_Manifest : constant String :=
+        (if Tertiary_Manifest_Path = ""
+         then ""
+         else Ada.Strings.Unbounded.To_String
+           (Project_Tools.Text.Read_Text_File
+              (Root & "/" & Tertiary_Manifest_Path)));
+
+      function Covered_In
+        (Data          : String;
+         Covered_Section : String;
+         Relative_Path : String)
+         return Boolean
+      is
+         Result : Boolean := False;
+
+         procedure Check_Entry (Entry_Pos : Positive) is
+            Path : constant String :=
+              Project_Tools.TOML.String_Value_After
+                (Data, "path = ", Entry_Pos);
+         begin
+            if Path = Relative_Path then
+               Result := True;
+            end if;
+         end Check_Entry;
+
+         procedure Check_Entries is new Project_Tools.TOML.Iterate_Section
+           (Check_Entry);
+      begin
+         if Data /= "" then
+            Check_Entries (Data, Covered_Section);
+         end if;
+         return Result;
+      end Covered_In;
+
+      function Covered (Relative_Path : String) return Boolean is
+        (Covered_In (Manifest, Section, Relative_Path)
+         or else Covered_In
+           (Secondary_Manifest, Secondary_Section, Relative_Path)
+         or else Covered_In
+           (Tertiary_Manifest, Tertiary_Section, Relative_Path));
+
+      procedure Check_Tree (Pattern : String) is
+         Search      : Ada.Directories.Search_Type;
+         Search_Open : Boolean := False;
+         Item        : Ada.Directories.Directory_Entry_Type;
+      begin
+         Ada.Directories.Start_Search
+           (Search    => Search,
+            Directory => Root & "/" & Source_Dir,
+            Pattern   => Pattern,
+            Filter    =>
+              [Ada.Directories.Ordinary_File => True, others => False]);
+         Search_Open := True;
+
+         while Ada.Directories.More_Entries (Search) loop
+            Ada.Directories.Get_Next_Entry (Search, Item);
+            declare
+               Name : constant String := Ada.Directories.Simple_Name (Item);
+               Relative_Path : constant String := Source_Dir & "/" & Name;
+               Lines : constant Natural :=
+                 Line_Count
+                   (Ada.Strings.Unbounded.To_String
+                      (Project_Tools.Text.Read_Text_File
+                         (Root & "/" & Relative_Path)));
+            begin
+               if Lines >= Minimum_Lines and then not Covered (Relative_Path) then
+                  Error
+                    (Errors,
+                     Purpose & " missing structural budget for "
+                     & Relative_Path,
+                     Quiet);
+               end if;
+            end;
+         end loop;
+
+         Ada.Directories.End_Search (Search);
+         Search_Open := False;
+      exception
+         when Constraint_Error
+            | Ada.Directories.Name_Error
+            | Ada.Directories.Use_Error =>
+            if Search_Open then
+               Ada.Directories.End_Search (Search);
+            end if;
+            raise;
+      end Check_Tree;
+   begin
+      if Minimum_Lines = 0 then
+         Error (Errors, Purpose & " minimum line threshold is missing", Quiet);
+      else
+         Check_Tree ("*.adb");
+         Check_Tree ("*.ads");
+      end if;
+   end Check_Large_Source_Budget_Coverage;
 end Project_Tools.Source_Budgets;

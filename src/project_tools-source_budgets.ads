@@ -36,4 +36,20 @@ package Project_Tools.Source_Budgets is
    --  usecase fields. The longest matching prefix selects the applicable
    --  budget. Files whose simple name contains "-test_" or "-check_" are
    --  treated as subunits.
+
+   procedure Check_Large_Source_Budget_Coverage
+     (Errors          : in out Natural;
+      Root            : String;
+      Manifest_Path   : String;
+      Source_Dir      : String;
+      Minimum_Lines   : Natural;
+      Purpose         : String := "large source budget coverage";
+      Section         : String := "body";
+      Secondary_Manifest_Path : String := "";
+      Secondary_Section       : String := "facade";
+      Tertiary_Manifest_Path  : String := "";
+      Tertiary_Section        : String := "artifact";
+      Quiet           : Boolean := False);
+   --  Require every .adb/.ads source file under Source_Dir with at least
+   --  Minimum_Lines lines to appear in one of the configured manifests.
 end Project_Tools.Source_Budgets;

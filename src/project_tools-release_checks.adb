@@ -1,4 +1,6 @@
 with Ada.Command_Line;
+with Ada.Calendar;
+with Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
@@ -154,6 +156,61 @@ package body Project_Tools.Release_Checks is
          & " | grep -v grep");
       return Project_Tools.Processes.Shell_Output (To_String (Command));
    end Ada_Build_Processes;
+
+   procedure Wait_For_Workspace_Build_Lock
+     (Lock_Path       : String;
+      Timeout_Seconds : Natural;
+      Quiet           : Boolean := False)
+   is
+      use type Ada.Calendar.Time;
+      Deadline : constant Ada.Calendar.Time :=
+        Ada.Calendar.Clock + Duration (Timeout_Seconds);
+   begin
+      while Project_Tools.Files.File_Exists (Lock_Path) loop
+         if Timeout_Seconds = 0 or else Ada.Calendar.Clock >= Deadline then
+            Fail
+              ("workspace build lock is active: " & Lock_Path,
+               Quiet);
+         end if;
+         delay 1.0;
+      end loop;
+   end Wait_For_Workspace_Build_Lock;
+
+   procedure Create_Workspace_Build_Lock
+     (Lock_Path : String;
+      Owner     : String;
+      Quiet     : Boolean := False)
+   is
+      File : Ada.Text_IO.File_Type;
+   begin
+      if Project_Tools.Files.File_Exists (Lock_Path) then
+         Fail ("workspace build lock is active: " & Lock_Path, Quiet);
+      end if;
+
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Lock_Path);
+      Ada.Text_IO.Put_Line (File, Owner);
+      Ada.Text_IO.Close (File);
+   exception
+      when others =>
+         if Ada.Text_IO.Is_Open (File) then
+            Ada.Text_IO.Close (File);
+         end if;
+         Fail ("could not create workspace build lock: " & Lock_Path, Quiet);
+   end Create_Workspace_Build_Lock;
+
+   procedure Remove_Workspace_Build_Lock
+     (Lock_Path : String;
+      Quiet     : Boolean := False)
+   is
+      pragma Unreferenced (Quiet);
+   begin
+      if Project_Tools.Files.File_Exists (Lock_Path) then
+         Ada.Directories.Delete_File (Lock_Path);
+      end if;
+   exception
+      when Ada.Directories.Name_Error | Ada.Directories.Use_Error =>
+         null;
+   end Remove_Workspace_Build_Lock;
 
    procedure Require_GPR_Main_Inventory
      (Project_File                   : String;
