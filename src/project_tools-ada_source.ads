@@ -68,6 +68,17 @@ package Project_Tools.Ada_Source is
    --  @param Forbidden_Tokens Tokens that must not appear outside comments.
    --  @param Quiet Suppress diagnostics when True.
 
+   procedure Scan_Broad_Exception_Handlers
+     (Source_Path : String;
+      Visit       : not null access procedure
+        (Line_Number : Positive;
+         Source_Line : String));
+   --  Visit each `when others` choice that belongs to an Ada exception
+   --  handler. Case alternatives, comments, and string literals are ignored.
+   --  @param Source_Path Ada source file to inspect.
+   --  @param Visit Callback invoked with the original source line for each
+   --         broad exception handler choice.
+
    procedure Require_Unique_String_Returns
      (Source_Path   : String;
       Function_Name : String;

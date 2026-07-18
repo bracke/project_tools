@@ -120,6 +120,183 @@ package body Project_Tools.Ada_Source is
       end if;
    end Fail;
 
+   procedure For_Each_Code_Token
+     (Line  : String;
+      Visit : not null access procedure (Token : String))
+   is
+      Index : Natural := Line'First;
+   begin
+      while Index <= Line'Last loop
+         if Index < Line'Last
+           and then Line (Index) = '-'
+           and then Line (Index + 1) = '-'
+         then
+            return;
+         elsif Line (Index) = '"' then
+            Index := Index + 1;
+            while Index <= Line'Last loop
+               if Line (Index) = '"' then
+                  if Index < Line'Last and then Line (Index + 1) = '"' then
+                     Index := Index + 2;
+                  else
+                     Index := Index + 1;
+                     exit;
+                  end if;
+               else
+                  Index := Index + 1;
+               end if;
+            end loop;
+         elsif Is_Identifier_Character (Line (Index)) then
+            declare
+               First : constant Positive := Index;
+            begin
+               while Index <= Line'Last
+                 and then Is_Identifier_Character (Line (Index))
+               loop
+                  Index := Index + 1;
+               end loop;
+
+               Visit (Lower (Line (First .. Index - 1)));
+            end;
+         elsif Index < Line'Last
+           and then Line (Index) = '='
+           and then Line (Index + 1) = '>'
+         then
+            Visit ("=>");
+            Index := Index + 2;
+         else
+            Index := Index + 1;
+         end if;
+      end loop;
+   end For_Each_Code_Token;
+
+   procedure Scan_Broad_Exception_Handlers
+     (Source_Path : String;
+      Visit       : not null access procedure
+        (Line_Number : Positive;
+         Source_Line : String))
+   is
+      File                 : Ada.Text_IO.File_Type;
+      Buffer               : String (1 .. 4096);
+      Last                 : Natural;
+      Current_Line         : Positive := 1;
+      In_Exception_Handler : Boolean := False;
+      Exception_Case_Depth : Natural := 0;
+      Choice_Open          : Boolean := False;
+      Choice_Has_Others    : Boolean := False;
+      Choice_Case_Depth    : Natural := 0;
+      Choice_Line_Number   : Positive := 1;
+      Choice_Source_Line   : Unbounded_String;
+   begin
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+      while not Ada.Text_IO.End_Of_File (File) loop
+         Ada.Text_IO.Get_Line (File, Buffer, Last);
+         declare
+            Line               : constant String := Buffer (1 .. Last);
+            Token_Count        : Natural := 0;
+            First_Token_Text   : Unbounded_String;
+            Second_Token_Text  : Unbounded_String;
+            Saw_End_Case       : Boolean := False;
+            Saw_Case           : Boolean := False;
+            Saw_Case_Is        : Boolean := False;
+            Broad_Handler_Line : Boolean := False;
+
+            procedure Note_Token (Token : String) is
+            begin
+               Token_Count := Token_Count + 1;
+               if Token_Count = 1 then
+                  First_Token_Text := To_Unbounded_String (Token);
+               elsif Token_Count = 2 then
+                  Second_Token_Text := To_Unbounded_String (Token);
+               end if;
+
+               if In_Exception_Handler then
+                  if Token = "when" then
+                     Choice_Open := True;
+                     Choice_Has_Others := False;
+                     Choice_Case_Depth := Exception_Case_Depth;
+                     Choice_Line_Number := Current_Line;
+                     Choice_Source_Line := To_Unbounded_String (Line);
+                  elsif Choice_Open and then Token = "others" then
+                     Choice_Has_Others := True;
+                  elsif Choice_Open and then Token = "=>" then
+                     if Choice_Has_Others and then Choice_Case_Depth = 0 then
+                        Broad_Handler_Line := True;
+                     end if;
+                     Choice_Open := False;
+                  elsif Choice_Open and then Token = ";" then
+                     Choice_Open := False;
+                  end if;
+               end if;
+
+               if Token_Count = 2
+                 and then To_String (First_Token_Text) = "end"
+                 and then Token = "case"
+               then
+                  Saw_End_Case := True;
+               elsif Token = "case" and then not Saw_End_Case then
+                  Saw_Case := True;
+               elsif Token = "is" and then Saw_Case then
+                  Saw_Case_Is := True;
+               end if;
+            end Note_Token;
+
+            function Is_Exception_Line return Boolean is
+              (Token_Count = 1 and then To_String (First_Token_Text) = "exception");
+
+            function Ends_Case_Statement return Boolean is
+              (To_String (First_Token_Text) = "end"
+               and then To_String (Second_Token_Text) = "case");
+
+            function Starts_Case_Statement return Boolean is
+              (Saw_Case_Is and then not Saw_End_Case);
+
+            function Ends_Exception_Section return Boolean is
+              (To_String (First_Token_Text) = "end"
+               and then To_String (Second_Token_Text) /= "if"
+               and then To_String (Second_Token_Text) /= "loop"
+               and then To_String (Second_Token_Text) /= "case"
+               and then To_String (Second_Token_Text) /= "record"
+               and then To_String (Second_Token_Text) /= "select");
+         begin
+            For_Each_Code_Token (Line, Note_Token'Access);
+
+            if Broad_Handler_Line then
+               Visit (Choice_Line_Number, To_String (Choice_Source_Line));
+            end if;
+
+            if Is_Exception_Line then
+               In_Exception_Handler := True;
+               Exception_Case_Depth := 0;
+               Choice_Open := False;
+            elsif In_Exception_Handler and then Ends_Case_Statement then
+               if Exception_Case_Depth > 0 then
+                  Exception_Case_Depth := Exception_Case_Depth - 1;
+               end if;
+            elsif In_Exception_Handler and then Starts_Case_Statement then
+               Exception_Case_Depth := Exception_Case_Depth + 1;
+            elsif In_Exception_Handler and then Ends_Exception_Section then
+               In_Exception_Handler := False;
+               Exception_Case_Depth := 0;
+               Choice_Open := False;
+            end if;
+         end;
+
+         if Current_Line < Positive'Last then
+            Current_Line := Current_Line + 1;
+         end if;
+      end loop;
+
+      Ada.Text_IO.Close (File);
+   exception
+      when others =>
+         if Ada.Text_IO.Is_Open (File) then
+            Ada.Text_IO.Close (File);
+         end if;
+
+         raise;
+   end Scan_Broad_Exception_Handlers;
+
    procedure Require_No_Code_Tokens
      (Source_Path      : String;
       Forbidden_Tokens : String_List;

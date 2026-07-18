@@ -10,14 +10,19 @@ with AUnit.Assertions;
 with AUnit.Simple_Test_Cases;
 
 with Project_Tools.Alire_Manifests;
+with Project_Tools.Alire;
 with Project_Tools.Ada_Source;
 with Project_Tools.AUnit_Checks;
 with Project_Tools.Files;
+with Project_Tools.Generated_Artifacts;
+with Project_Tools.Generated_Docs;
 with Project_Tools.JSON;
 with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
 with Project_Tools.Security_Corpus;
+with Project_Tools.Source_Budgets;
 with Project_Tools.Text;
+with Project_Tools.TOML;
 with Project_Tools.Tree_Checks;
 
 with Project_Tools_Test_Suite.Support;
@@ -27,6 +32,12 @@ package body Project_Tools_Test_Suite.Files_Tests is
    use Ada.Strings.Unbounded;
    use type GNAT.OS_Lib.String_Access;
    use Project_Tools_Test_Suite.Support;
+
+   function Toy_Hash (Text : String) return String is
+      Image : constant String := Natural'Image (Text'Length);
+   begin
+      return "len-" & Image (Image'First + 1 .. Image'Last);
+   end Toy_Hash;
 
    overriding function Name (Item : Text_Helper_Test) return AUnit.Message_String is
       pragma Unreferenced (Item);
@@ -267,6 +278,52 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Quiet => True);
       Project_Tools.Ada_Source.Require_Unique_String_Returns
         (Root & "/policy-ok.adb", "Key", Allow_Empty => True, Quiet => True);
+      Write_File
+        (Root & "/exception-scan.adb",
+         "package body Exception_Scan is" & ASCII.LF
+         & "   function Label (Id : Integer) return String is" & ASCII.LF
+         & "   begin" & ASCII.LF
+         & "      if Id = 0 then" & ASCII.LF
+         & "         return ""when others => is data, not code"";" & ASCII.LF
+         & "      end if;" & ASCII.LF
+         & "      case Id is" & ASCII.LF
+         & "         when others => return ""case fallback"";" & ASCII.LF
+         & "      end case;" & ASCII.LF
+         & "   exception" & ASCII.LF
+         & "      when others => null; -- intentional silent recovery" & ASCII.LF
+         & "   end Label;" & ASCII.LF
+         & "   procedure Recover (Id : Integer) is" & ASCII.LF
+         & "   begin" & ASCII.LF
+         & "      null;" & ASCII.LF
+         & "   exception" & ASCII.LF
+         & "      case Id is" & ASCII.LF
+         & "         when others => null;" & ASCII.LF
+         & "      end case;" & ASCII.LF
+         & "      when Constraint_Error | others => null; -- defensive recovery" & ASCII.LF
+         & "   end Recover;" & ASCII.LF
+         & "end Exception_Scan;" & ASCII.LF);
+      declare
+         Broad_Handler_Count : Natural := 0;
+
+         procedure Count_Broad_Handler
+           (Line_Number : Positive;
+            Source_Line : String)
+         is
+            pragma Unreferenced (Line_Number);
+         begin
+            Broad_Handler_Count := Broad_Handler_Count + 1;
+            Assert
+              (Project_Tools.Text.Contains (Source_Line, "intentional silent recovery")
+               or else Project_Tools.Text.Contains (Source_Line, "defensive recovery"),
+               "broad handler scan returns real exception handlers");
+         end Count_Broad_Handler;
+      begin
+         Project_Tools.Ada_Source.Scan_Broad_Exception_Handlers
+           (Root & "/exception-scan.adb", Count_Broad_Handler'Access);
+         Assert
+           (Broad_Handler_Count = 2,
+            "broad handler scan ignores case alternatives and string literals");
+      end;
       Assert
         (not Project_Tools.Files.File_Starts_With_File (Text_Path, Long_Prefix_Path),
          "prefix comparison rejects longer non-matching prefix files");
@@ -299,6 +356,142 @@ package body Project_Tools_Test_Suite.Files_Tests is
       Assert
         (Project_Tools.Files.File_Contains (Root & "/manifest-dst/alire.toml", "manifest"),
          "dependency manifest copy writes target manifest");
+
+      declare
+         TOML_Text : constant String :=
+           "[[entry]]" & ASCII.LF
+           & "name = ""alpha""" & ASCII.LF
+           & "count = 12" & ASCII.LF
+           & ASCII.LF
+           & "[[entry]]" & ASCII.LF
+           & "name = ""beta""" & ASCII.LF;
+         Sections : Natural := 0;
+
+         procedure Count_Entry (Entry_Pos : Positive) is
+         begin
+            Sections := Sections + 1;
+            if Sections = 1 then
+               Assert
+                 (Project_Tools.TOML.String_Value_After
+                    (TOML_Text, "name = ", Entry_Pos) = "alpha",
+                  "TOML string values are parsed from a section");
+               Assert
+                 (Project_Tools.TOML.Natural_Value_After
+                    (TOML_Text, "count = ", Entry_Pos) = 12,
+                  "TOML natural values are parsed from a section");
+            end if;
+         end Count_Entry;
+
+         procedure Iterate_Entries is new Project_Tools.TOML.Iterate_Section
+           (Count_Entry);
+      begin
+         Iterate_Entries (TOML_Text, "entry");
+         Assert (Sections = 2, "TOML section iteration finds repeated entries");
+      end;
+
+      declare
+         Exec_Args : GNAT.OS_Lib.Argument_List :=
+           Project_Tools.Alire.Noninteractive_Exec_Args
+             ([new String'("gprbuild"), new String'("-P"), new String'("test.gpr")]);
+         Build_Args : GNAT.OS_Lib.Argument_List :=
+           Project_Tools.Alire.Noninteractive_Build_Args;
+      begin
+         Assert (Exec_Args (1).all = "--non-interactive", "Alire exec args are noninteractive");
+         Assert (Exec_Args (2).all = "exec", "Alire exec args preserve command");
+         Assert (Exec_Args (4).all = "gprbuild", "Alire exec args append tool arguments");
+         Assert (Build_Args (1).all = "--non-interactive", "Alire build args are noninteractive");
+      end;
+
+      Ada.Directories.Create_Path (Root & "/src");
+      Write_File
+        (Root & "/src/small.adb",
+         "procedure Small is" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   null;" & ASCII.LF
+         & "end Small;" & ASCII.LF);
+      Write_File
+        (Root & "/structural.toml",
+         "[[body]]" & ASCII.LF
+         & "path = ""src/small.adb""" & ASCII.LF
+         & "split_prefix = """"" & ASCII.LF
+         & "target_lines = 8" & ASCII.LF
+         & "max_lines = 12" & ASCII.LF
+         & "min_headroom_lines = 2" & ASCII.LF
+         & "max_bytes = 1000" & ASCII.LF
+         & "min_split_bodies = 0" & ASCII.LF
+         & "usecase = ""test""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Source_Budgets.Check_Structural_Baseline
+           (Errors, Root, "structural.toml", 1, Quiet => True);
+         Assert (Errors = 0, "structural budget manifest accepts matching files");
+      end;
+
+      Write_File
+        (Root & "/src/generated.adb",
+         "--  generated data marker" & ASCII.LF
+         & "package body Generated is end Generated;" & ASCII.LF);
+      Write_File
+        (Root & "/generated.toml",
+         "[[artifact]]" & ASCII.LF
+         & "path = ""src/generated.adb""" & ASCII.LF
+         & "kind = ""table""" & ASCII.LF
+         & "owner = ""test""" & ASCII.LF
+         & "source = ""fixture""" & ASCII.LF
+         & "currentness = ""checked""" & ASCII.LF
+         & "coverage = ""covered""" & ASCII.LF
+         & "marker = ""generated data marker""" & ASCII.LF
+         & "line_count = 2" & ASCII.LF
+         & "sha256 = """ & Toy_Hash
+           ("--  generated data marker" & ASCII.LF
+            & "package body Generated is end Generated;" & ASCII.LF)
+         & """" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Generated_Artifacts.Check_Data_Manifest
+           (Errors, Root, "generated.toml", 1, Toy_Hash'Access, Quiet => True);
+         Assert (Errors = 0, "generated artifact manifest accepts matching metadata");
+      end;
+
+      Write_File (Root & "/doc.md", "generated doc" & ASCII.LF);
+      Write_File
+        (Root & "/checker.adb",
+         "procedure Checker is" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   if False then" & ASCII.LF
+         & "      null; --  --print-doc" & ASCII.LF
+         & "   end if;" & ASCII.LF
+         & "end Checker;" & ASCII.LF);
+      Write_File
+        (Root & "/docs.toml",
+         "[[doc]]" & ASCII.LF
+         & "path = ""doc.md""" & ASCII.LF
+         & "command = ""./bin/check --print-doc""" & ASCII.LF
+         & "owner = ""test""" & ASCII.LF
+         & "source = ""fixture""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Assert
+           (Project_Tools.Generated_Docs.Equivalent_Text
+              ("generated doc" & ASCII.LF, "generated doc"),
+            "generated doc equivalence tolerates one trailing newline");
+         Project_Tools.Generated_Docs.Check_Docs_Manifest
+           (Errors, Root, "docs.toml", "checker.adb", "./bin/check", 1,
+            Quiet => True);
+         Assert (Errors = 0, "generated docs manifest accepts matching metadata");
+      end;
+
+      Ada.Directories.Create_Path (Root & "/obj");
+      Write_File (Root & "/obj/unit.stderr", "warning" & ASCII.LF);
+      Assert
+        (Project_Tools.Text.Contains
+           (Project_Tools.Release_Checks.Nonempty_Stderr_Files
+              ([1 => To_Unbounded_String (Root & "/obj")]),
+            "unit.stderr"),
+         "release checks can list nonempty compiler stderr files");
 
       Delete_Tree_If_Present (Root);
    exception

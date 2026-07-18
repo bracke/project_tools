@@ -1,4 +1,5 @@
 with GNAT.OS_Lib;
+with Project_Tools.Files;
 with Project_Tools.Processes;
 
 package Project_Tools.Release_Checks is
@@ -38,6 +39,17 @@ package Project_Tools.Release_Checks is
    --  @param Label Human-readable repository name for diagnostics.
    --  @param Path Path to the Git worktree to inspect.
    --  @param Quiet Suppress diagnostics when True.
+
+   function Nonempty_Stderr_Files
+     (Dirs : Project_Tools.Files.Path_List)
+      return String;
+   --  Return newline-separated nonempty `.stderr` files below Dirs.
+
+   function Ada_Build_Processes
+     (Path_Token : String := "")
+      return String;
+   --  Return visible Alire/GPR/GNAT process diagnostics, optionally filtered
+   --  by a path token.
 
    procedure Require_GPR_Main_Inventory
      (Project_File                   : String;

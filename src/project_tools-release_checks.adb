@@ -118,6 +118,43 @@ package body Project_Tools.Release_Checks is
       end if;
    end Require_Clean_Git_Worktree;
 
+   function Nonempty_Stderr_Files
+     (Dirs : Project_Tools.Files.Path_List)
+      return String
+   is
+      Command : Unbounded_String := Null_Unbounded_String;
+   begin
+      Append (Command, "find");
+      for Dir of Dirs loop
+         Append
+           (Command,
+            " " & Project_Tools.Processes.Shell_Quote (To_String (Dir)));
+      end loop;
+      Append (Command, " -type f -name '*.stderr' -size +0c -print");
+      return Project_Tools.Processes.Shell_Output (To_String (Command));
+   end Nonempty_Stderr_Files;
+
+   function Ada_Build_Processes
+     (Path_Token : String := "")
+      return String
+   is
+      Command : Unbounded_String :=
+        To_Unbounded_String
+          ("ps -eo pid,ppid,stat,etime,comm,args");
+   begin
+      if Path_Token /= "" then
+         Append
+           (Command,
+            " | grep " & Project_Tools.Processes.Shell_Quote (Path_Token));
+      end if;
+
+      Append
+        (Command,
+         " | grep -E '(^|/| )(alr|gprbuild|gcc|gnat1|gnatbind|gnatlink)( |$)'"
+         & " | grep -v grep");
+      return Project_Tools.Processes.Shell_Output (To_String (Command));
+   end Ada_Build_Processes;
+
    procedure Require_GPR_Main_Inventory
      (Project_File                   : String;
       Documentation_File             : String;
