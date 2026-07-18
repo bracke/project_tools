@@ -10,6 +10,14 @@ with Project_Tools.TOML;
 package body Project_Tools.Source_Budgets is
    use type Ada.Directories.File_Size;
 
+   function Coverage_Manifest_Entry
+     (Manifest_Path : String;
+      Section       : String)
+      return Coverage_Manifest
+   is
+     (Manifest_Path => Ada.Strings.Unbounded.To_Unbounded_String (Manifest_Path),
+      Section       => Ada.Strings.Unbounded.To_Unbounded_String (Section));
+
    procedure Error
      (Errors  : in out Natural;
       Message : String;
@@ -349,32 +357,35 @@ package body Project_Tools.Source_Budgets is
    procedure Check_Large_Source_Budget_Coverage
      (Errors          : in out Natural;
       Root            : String;
-      Manifest_Path   : String;
       Source_Dir      : String;
       Minimum_Lines   : Natural;
+      Manifests       : Coverage_Manifest_List;
       Purpose         : String := "large source budget coverage";
-      Section         : String := "body";
-      Secondary_Manifest_Path : String := "";
-      Secondary_Section       : String := "facade";
-      Tertiary_Manifest_Path  : String := "";
-      Tertiary_Section        : String := "artifact";
       Quiet           : Boolean := False)
    is
-      Manifest : constant String :=
-        Ada.Strings.Unbounded.To_String
-          (Project_Tools.Text.Read_Text_File (Root & "/" & Manifest_Path));
-      Secondary_Manifest : constant String :=
-        (if Secondary_Manifest_Path = ""
-         then ""
-         else Ada.Strings.Unbounded.To_String
-           (Project_Tools.Text.Read_Text_File
-              (Root & "/" & Secondary_Manifest_Path)));
-      Tertiary_Manifest : constant String :=
-        (if Tertiary_Manifest_Path = ""
-         then ""
-         else Ada.Strings.Unbounded.To_String
-           (Project_Tools.Text.Read_Text_File
-              (Root & "/" & Tertiary_Manifest_Path)));
+      Manifest_Data : array (Manifests'Range) of
+        Ada.Strings.Unbounded.Unbounded_String;
+
+      procedure Load_Manifests is
+      begin
+         for Index in Manifests'Range loop
+            declare
+               Path : constant String :=
+                 Ada.Strings.Unbounded.To_String
+                   (Manifests (Index).Manifest_Path);
+            begin
+               if Path = "" then
+                  Error
+                    (Errors,
+                     Purpose & " manifest path is missing",
+                     Quiet);
+               else
+                  Manifest_Data (Index) :=
+                    Project_Tools.Text.Read_Text_File (Root & "/" & Path);
+               end if;
+            end;
+         end loop;
+      end Load_Manifests;
 
       function Covered_In
         (Data          : String;
@@ -404,11 +415,27 @@ package body Project_Tools.Source_Budgets is
       end Covered_In;
 
       function Covered (Relative_Path : String) return Boolean is
-        (Covered_In (Manifest, Section, Relative_Path)
-         or else Covered_In
-           (Secondary_Manifest, Secondary_Section, Relative_Path)
-         or else Covered_In
-           (Tertiary_Manifest, Tertiary_Section, Relative_Path));
+      begin
+         for Index in Manifests'Range loop
+            declare
+               Section : constant String :=
+                 Ada.Strings.Unbounded.To_String (Manifests (Index).Section);
+               Data : constant String :=
+                 Ada.Strings.Unbounded.To_String (Manifest_Data (Index));
+            begin
+               if Section = "" then
+                  Error
+                    (Errors,
+                     Purpose & " manifest section is missing",
+                     Quiet);
+               elsif Covered_In (Data, Section, Relative_Path) then
+                  return True;
+               end if;
+            end;
+         end loop;
+
+         return False;
+      end Covered;
 
       procedure Check_Tree (Pattern : String) is
          Search      : Ada.Directories.Search_Type;
@@ -458,7 +485,10 @@ package body Project_Tools.Source_Budgets is
    begin
       if Minimum_Lines = 0 then
          Error (Errors, Purpose & " minimum line threshold is missing", Quiet);
+      elsif Manifests'Length = 0 then
+         Error (Errors, Purpose & " manifest list is empty", Quiet);
       else
+         Load_Manifests;
          Check_Tree ("*.adb");
          Check_Tree ("*.ads");
       end if;

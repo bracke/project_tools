@@ -56,7 +56,7 @@ package Project_Tools.Release_Checks is
       Timeout_Seconds : Natural;
       Quiet           : Boolean := False);
    --  Wait until Lock_Path disappears, failing after Timeout_Seconds.
-   --  @param Lock_Path Workspace-level lock file path.
+   --  @param Lock_Path Workspace-level lock directory path.
    --  @param Timeout_Seconds Maximum seconds to wait; zero means fail fast.
    --  @param Quiet Suppress diagnostics when True.
 
@@ -64,12 +64,13 @@ package Project_Tools.Release_Checks is
      (Lock_Path : String;
       Owner     : String;
       Quiet     : Boolean := False);
-   --  Create Lock_Path with Owner text or fail if a lock already exists.
+   --  Atomically create Lock_Path as a directory and write Owner metadata.
 
    procedure Remove_Workspace_Build_Lock
      (Lock_Path : String;
       Quiet     : Boolean := False);
-   --  Remove a lock file created by this process. Missing files are ignored.
+   --  Remove a lock directory created by this process. Missing paths are
+   --  ignored.
 
    procedure Require_GPR_Main_Inventory
      (Project_File                   : String;

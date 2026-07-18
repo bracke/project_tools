@@ -166,7 +166,7 @@ package body Project_Tools.Release_Checks is
       Deadline : constant Ada.Calendar.Time :=
         Ada.Calendar.Clock + Duration (Timeout_Seconds);
    begin
-      while Project_Tools.Files.File_Exists (Lock_Path) loop
+      while Project_Tools.Files.Exists (Lock_Path) loop
          if Timeout_Seconds = 0 or else Ada.Calendar.Clock >= Deadline then
             Fail
               ("workspace build lock is active: " & Lock_Path,
@@ -182,18 +182,29 @@ package body Project_Tools.Release_Checks is
       Quiet     : Boolean := False)
    is
       File : Ada.Text_IO.File_Type;
+      Created_Directory : Boolean := False;
    begin
-      if Project_Tools.Files.File_Exists (Lock_Path) then
-         Fail ("workspace build lock is active: " & Lock_Path, Quiet);
-      end if;
-
-      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Lock_Path);
+      Ada.Directories.Create_Directory (Lock_Path);
+      Created_Directory := True;
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Lock_Path & "/owner");
       Ada.Text_IO.Put_Line (File, Owner);
       Ada.Text_IO.Close (File);
    exception
+      when Ada.Directories.Name_Error | Ada.Directories.Use_Error =>
+         if Ada.Text_IO.Is_Open (File) then
+            Ada.Text_IO.Close (File);
+         end if;
+         if Project_Tools.Files.Exists (Lock_Path) then
+            Fail ("workspace build lock is active: " & Lock_Path, Quiet);
+         else
+            Fail ("could not create workspace build lock: " & Lock_Path, Quiet);
+         end if;
       when others =>
          if Ada.Text_IO.Is_Open (File) then
             Ada.Text_IO.Close (File);
+         end if;
+         if Created_Directory then
+            Remove_Workspace_Build_Lock (Lock_Path, Quiet => True);
          end if;
          Fail ("could not create workspace build lock: " & Lock_Path, Quiet);
    end Create_Workspace_Build_Lock;
@@ -204,7 +215,9 @@ package body Project_Tools.Release_Checks is
    is
       pragma Unreferenced (Quiet);
    begin
-      if Project_Tools.Files.File_Exists (Lock_Path) then
+      if Project_Tools.Files.Directory_Exists (Lock_Path) then
+         Ada.Directories.Delete_Tree (Lock_Path);
+      elsif Project_Tools.Files.File_Exists (Lock_Path) then
          Ada.Directories.Delete_File (Lock_Path);
       end if;
    exception

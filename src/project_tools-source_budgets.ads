@@ -1,4 +1,15 @@
+with Ada.Strings.Unbounded;
+
 package Project_Tools.Source_Budgets is
+   type Coverage_Manifest is private;
+   type Coverage_Manifest_List is array (Positive range <>) of Coverage_Manifest;
+
+   function Coverage_Manifest_Entry
+     (Manifest_Path : String;
+      Section       : String)
+      return Coverage_Manifest;
+   --  Describe one manifest section that owns source budget coverage.
+
    procedure Check_Line_Byte_Budget
      (Errors             : in out Natural;
       Root               : String;
@@ -40,16 +51,19 @@ package Project_Tools.Source_Budgets is
    procedure Check_Large_Source_Budget_Coverage
      (Errors          : in out Natural;
       Root            : String;
-      Manifest_Path   : String;
       Source_Dir      : String;
       Minimum_Lines   : Natural;
+      Manifests       : Coverage_Manifest_List;
       Purpose         : String := "large source budget coverage";
-      Section         : String := "body";
-      Secondary_Manifest_Path : String := "";
-      Secondary_Section       : String := "facade";
-      Tertiary_Manifest_Path  : String := "";
-      Tertiary_Section        : String := "artifact";
       Quiet           : Boolean := False);
    --  Require every .adb/.ads source file under Source_Dir with at least
    --  Minimum_Lines lines to appear in one of the configured manifests.
+
+private
+   subtype Unbounded_String is Ada.Strings.Unbounded.Unbounded_String;
+
+   type Coverage_Manifest is record
+      Manifest_Path : Unbounded_String;
+      Section       : Unbounded_String;
+   end record;
 end Project_Tools.Source_Budgets;

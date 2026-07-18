@@ -175,13 +175,50 @@ package body Project_Tools_Test_Suite.Checks_Tests is
 
    overriding procedure Run_Test (Item : in out Release_Checks_Fail_Test) is
       pragma Unreferenced (Item);
+      Lock_Path : constant String := Root & "/workspace-build.lock";
       procedure Do_Fail is
       begin
          Project_Tools.Release_Checks.Fail ("intentional release failure", Quiet => True);
       end Do_Fail;
+
+      procedure Duplicate_Lock_Fails is
+      begin
+         Project_Tools.Release_Checks.Create_Workspace_Build_Lock
+           (Lock_Path, "second owner", Quiet => True);
+      end Duplicate_Lock_Fails;
+
+      procedure Active_Lock_Wait_Fails is
+      begin
+         Project_Tools.Release_Checks.Wait_For_Workspace_Build_Lock
+           (Lock_Path, 0, Quiet => True);
+      end Active_Lock_Wait_Fails;
    begin
       Expect_Program_Error
         (Do_Fail'Access, "Release_Checks.Fail raises Program_Error on failure");
+      Delete_Tree_If_Present (Root);
+      Ada.Directories.Create_Path (Root);
+      Project_Tools.Release_Checks.Create_Workspace_Build_Lock
+        (Lock_Path, "test owner", Quiet => True);
+      Assert
+        (Project_Tools.Files.Directory_Exists (Lock_Path),
+         "workspace build lock uses an atomic directory");
+      Assert
+        (Project_Tools.Files.File_Contains (Lock_Path & "/owner", "test owner"),
+         "workspace build lock records owner metadata");
+      Expect_Program_Error
+        (Duplicate_Lock_Fails'Access,
+         "workspace build lock rejects duplicate acquisition");
+      Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
+      Expect_Program_Error
+        (Active_Lock_Wait_Fails'Access,
+         "workspace build lock wait fails when timeout is zero");
+      Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
+      Project_Tools.Release_Checks.Remove_Workspace_Build_Lock
+        (Lock_Path, Quiet => True);
+      Assert
+        (not Project_Tools.Files.Exists (Lock_Path),
+         "workspace build lock cleanup removes lock directory");
+      Delete_Tree_If_Present (Root);
    end Run_Test;
 
    overriding function Name (Item : Release_Checks_Git_Test) return AUnit.Message_String is

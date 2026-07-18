@@ -13,6 +13,7 @@ with Project_Tools.Alire_Manifests;
 with Project_Tools.Alire;
 with Project_Tools.Ada_Source;
 with Project_Tools.AUnit_Checks;
+with Project_Tools.Coverage_Ratchets;
 with Project_Tools.Files;
 with Project_Tools.Generated_Artifacts;
 with Project_Tools.Generated_Docs;
@@ -437,7 +438,10 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Errors : Natural := 0;
       begin
          Project_Tools.Source_Budgets.Check_Large_Source_Budget_Coverage
-           (Errors, Root, "structural.toml", "src", 4, Quiet => True);
+           (Errors, Root, "src", 4,
+            [Project_Tools.Source_Budgets.Coverage_Manifest_Entry
+               ("structural.toml", "body")],
+            Quiet => True);
          Assert
            (Errors > 0,
             "large source coverage rejects unbudgeted source files");
@@ -451,10 +455,12 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Errors : Natural := 0;
       begin
          Project_Tools.Source_Budgets.Check_Large_Source_Budget_Coverage
-           (Errors, Root, "structural.toml", "src", 4,
-            Secondary_Manifest_Path => "facades.toml",
-            Secondary_Section       => "facade",
-            Quiet                   => True);
+           (Errors, Root, "src", 4,
+            [Project_Tools.Source_Budgets.Coverage_Manifest_Entry
+               ("structural.toml", "body"),
+             Project_Tools.Source_Budgets.Coverage_Manifest_Entry
+               ("facades.toml", "facade")],
+            Quiet => True);
          Assert
            (Errors = 0,
             "large source coverage accepts secondary manifest ownership");
@@ -569,6 +575,65 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Assert
            (Errors = 0,
             "generated artifact manifest accepts shard with matching parent");
+      end;
+
+      Write_File
+        (Root & "/coverage.toml",
+         "[[unit]]" & ASCII.LF
+         & "name = ""A""" & ASCII.LF
+         & "perf_exempt_category = ""pure""" & ASCII.LF
+         & ASCII.LF
+         & "[[unit]]" & ASCII.LF
+         & "name = ""B""" & ASCII.LF
+         & "perf_exempt_category = ""wrapper""" & ASCII.LF);
+      Write_File
+        (Root & "/category-ratchets.toml",
+         "[[category]]" & ASCII.LF
+         & "category = ""pure""" & ASCII.LF
+         & "max_count = 1" & ASCII.LF
+         & "usecase = ""pure packages""" & ASCII.LF
+         & ASCII.LF
+         & "[[category]]" & ASCII.LF
+         & "category = ""wrapper""" & ASCII.LF
+         & "max_count = 1" & ASCII.LF
+         & "usecase = ""wrappers""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Coverage_Ratchets.Check_Category_Ratchets
+           (Errors, Root, "coverage.toml", "category-ratchets.toml",
+            "perf_exempt_category", 2, Quiet => True);
+         Assert (Errors = 0, "category ratchets accept covered categories");
+      end;
+      Write_File
+        (Root & "/coverage-over.toml",
+         "[[unit]]" & ASCII.LF
+         & "perf_exempt_category = ""pure""" & ASCII.LF
+         & ASCII.LF
+         & "[[unit]]" & ASCII.LF
+         & "perf_exempt_category = ""pure""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Coverage_Ratchets.Check_Category_Ratchets
+           (Errors, Root, "coverage-over.toml", "category-ratchets.toml",
+            "perf_exempt_category", 2, Quiet => True);
+         Assert (Errors > 0, "category ratchets reject cap growth");
+         Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
+      end;
+      Write_File
+        (Root & "/coverage-missing-category.toml",
+         "[[unit]]" & ASCII.LF
+         & "perf_exempt_category = ""unknown""" & ASCII.LF);
+      declare
+         Errors : Natural := 0;
+      begin
+         Project_Tools.Coverage_Ratchets.Check_Category_Ratchets
+           (Errors, Root, "coverage-missing-category.toml",
+            "category-ratchets.toml", "perf_exempt_category", 2,
+            Quiet => True);
+         Assert (Errors > 0, "category ratchets require manifest ownership");
+         Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
       end;
 
       Write_File (Root & "/doc.md", "generated doc" & ASCII.LF);
