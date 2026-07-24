@@ -2,7 +2,6 @@ with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Strings;
 with Ada.Strings.Fixed;
-with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
 with Project_Tools.Files;
@@ -123,6 +122,7 @@ package body Project_Tools.Processes is
    is
       Previous  : constant String := Ada.Directories.Current_Directory;
       Temp_Dir  : constant String := "/tmp";
+      Max_Temp_Attempts : constant := 50_000;
       FD        : GNAT.OS_Lib.File_Descriptor;
       Temp_Name : GNAT.OS_Lib.String_Access;
       Status    : Integer;
@@ -154,9 +154,19 @@ package body Project_Tools.Processes is
          Ada.Text_IO.Put_Line ("==> " & Label);
       end if;
 
-      Ada.Directories.Set_Directory (Temp_Dir);
-      GNAT.OS_Lib.Create_Temp_Output_File (FD, Temp_Name);
-      Ada.Directories.Set_Directory (Previous);
+      --  GNAT.OS_Lib.Create_Temp_Output_File derives a candidate name from a
+      --  process-global counter and returns Invalid_FD (without retrying) when
+      --  that candidate already exists; the counter still advances. A /tmp
+      --  littered with stale GNAT-TEMP-*.TMP files -- e.g. leaked by processes
+      --  killed before cleanup -- therefore makes the first call(s) fail until
+      --  the counter steps past them. Retry until a free slot is found rather
+      --  than treating the first collision as fatal.
+      for Attempt in 1 .. Max_Temp_Attempts loop
+         Ada.Directories.Set_Directory (Temp_Dir);
+         GNAT.OS_Lib.Create_Temp_Output_File (FD, Temp_Name);
+         Ada.Directories.Set_Directory (Previous);
+         exit when FD /= GNAT.OS_Lib.Invalid_FD and then Temp_Name /= null;
+      end loop;
       if FD = GNAT.OS_Lib.Invalid_FD or else Temp_Name = null then
          raise Program_Error with "could not create temporary output file";
       end if;
