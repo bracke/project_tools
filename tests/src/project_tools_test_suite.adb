@@ -1,22 +1,16 @@
-with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Strings.Unbounded;
-with Ada.Text_IO;
 
 with GNAT.OS_Lib;
 
 with AUnit;
 with AUnit.Assertions;
 with AUnit.Simple_Test_Cases;
-with AUnit.Test_Suites;
 
 with Project_Tools.Alire_Manifests;
-with Project_Tools.Ada_Source;
 with Project_Tools.AUnit_Checks;
 with Project_Tools.Files;
-with Project_Tools.JSON;
 with Project_Tools.Processes;
-with Project_Tools.Release_Checks;
 with Project_Tools.Security_Corpus;
 with Project_Tools.Text;
 with Project_Tools.Tree_Checks;
@@ -29,7 +23,6 @@ with Project_Tools_Test_Suite.Checks_Tests;
 package body Project_Tools_Test_Suite is
    use AUnit.Assertions;
    use Ada.Strings.Unbounded;
-   use type GNAT.OS_Lib.String_Access;
    use Project_Tools_Test_Suite.Support;
 
    type Focus_Area is
@@ -173,32 +166,37 @@ package body Project_Tools_Test_Suite is
    end Run_Test;
 
    function Suite return AUnit.Test_Suites.Access_Test_Suite is
+      --  Add_Test takes an anonymous access parameter; allocating straight into
+      --  it yields an anonymous-access allocator whose pool is implementation
+      --  defined. Naming the type pins the cases to the standard pool.
+      type Test_Case_Access is access all AUnit.Simple_Test_Cases.Test_Case'Class;
+
       Result : constant AUnit.Test_Suites.Access_Test_Suite := AUnit.Test_Suites.New_Suite;
    begin
-      Result.Add_Test (new Project_Tools_Test_Suite.Files_Tests.Text_Helper_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Files_Tests.File_Helper_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Files_Tests.File_Failure_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Checks_Tests.Alire_Manifest_Failure_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Processes_Tests.Process_Helper_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Processes_Tests.Process_Failure_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Processes_Tests.Process_Output_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Processes_Tests.Promoted_Helpers_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Checks_Tests.Release_Checks_Fail_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Checks_Tests.Release_Checks_Git_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Checks_Tests.AUnit_Check_Helper_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Checks_Tests.Tree_Check_Helper_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Checks_Tests.Security_Corpus_Helper_Test);
-      Result.Add_Test (new Project_Tools_Test_Suite.Files_Tests.JSON_Helper_Test);
-      Result.Add_Test (new Focused_Test (Area => Focus_Text_Contains));
-      Result.Add_Test (new Focused_Test (Area => Focus_Text_Count));
-      Result.Add_Test (new Focused_Test (Area => Focus_File_Exists));
-      Result.Add_Test (new Focused_Test (Area => Focus_File_Contains));
-      Result.Add_Test (new Focused_Test (Area => Focus_Manifest_No_Pins));
-      Result.Add_Test (new Focused_Test (Area => Focus_Manifest_Dependency));
-      Result.Add_Test (new Focused_Test (Area => Focus_Process_Status));
-      Result.Add_Test (new Focused_Test (Area => Focus_AUnit_Spec_Name));
-      Result.Add_Test (new Focused_Test (Area => Focus_Tree_Check_Clean));
-      Result.Add_Test (new Focused_Test (Area => Focus_Security_Corpus_Clean));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.Text_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.File_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.File_Failure_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Alire_Manifest_Failure_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Processes_Tests.Process_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Processes_Tests.Process_Failure_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Processes_Tests.Process_Output_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Processes_Tests.Promoted_Helpers_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Release_Checks_Fail_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Release_Checks_Git_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.AUnit_Check_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Tree_Check_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Security_Corpus_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.JSON_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Text_Contains)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Text_Count)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_File_Exists)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_File_Contains)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Manifest_No_Pins)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Manifest_Dependency)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Process_Status)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_AUnit_Spec_Name)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Tree_Check_Clean)));
+      Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Security_Corpus_Clean)));
       return Result;
    end Suite;
 end Project_Tools_Test_Suite;

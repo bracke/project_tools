@@ -4,8 +4,6 @@ with Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
-with Project_Tools.Files;
-with Project_Tools.Processes;
 with Project_Tools.Text;
 
 package body Project_Tools.Release_Checks is
@@ -91,7 +89,7 @@ package body Project_Tools.Release_Checks is
       Path  : String;
       Quiet : Boolean := False)
    is
-      Git_Args : GNAT.OS_Lib.Argument_List :=
+      Git_Args : constant GNAT.OS_Lib.Argument_List :=
         [new String'("-C"),
          new String'(Path),
          new String'("status"),

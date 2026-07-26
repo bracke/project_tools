@@ -1,6 +1,5 @@
 with Ada.Command_Line;
 with Ada.Directories;
-with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
 with Project_Tools.Files;

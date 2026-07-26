@@ -34,4 +34,7 @@ jobs:
       - name: Run tests
         run: ./tests/bin/project_tools_tests
       - name: Build public API smoke
-        run: alr exec -- gprbuild -P public_api_smoke/project_tools_public_api_smoke.gpr
+        # public_api_smoke is its own Alire root; its gpr withs config/<crate>_config.gpr,
+        # which resolves only inside that crate. Build it there, as tests is built above.
+        working-directory: public_api_smoke
+        run: alr --non-interactive build

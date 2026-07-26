@@ -1,23 +1,18 @@
 with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Strings.Unbounded;
-with Ada.Text_IO;
 
 with GNAT.OS_Lib;
 
-with AUnit;
 with AUnit.Assertions;
-with AUnit.Simple_Test_Cases;
 
 with Project_Tools.Alire_Manifests;
 with Project_Tools.Ada_Source;
 with Project_Tools.AUnit_Checks;
 with Project_Tools.Files;
-with Project_Tools.JSON;
 with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
 with Project_Tools.Security_Corpus;
-with Project_Tools.Text;
 with Project_Tools.Tree_Checks;
 
 with Project_Tools_Test_Suite.Support;

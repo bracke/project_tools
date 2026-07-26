@@ -152,7 +152,7 @@ package body Project_Tools.Generated_Artifacts is
          if Path = "" or else Kind = "" or else Owner = "" or else Source = ""
            or else Currentness = "" or else Coverage = "" or else Marker = ""
            or else Expected_Lines = 0 or else SHA256 = ""
-        then
+         then
             Error (Errors, "generated-data manifest entry is incomplete", Quiet);
          elsif not Is_Allowed_Kind (Kind) then
             Error

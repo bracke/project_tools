@@ -1,6 +1,9 @@
 package Project_Tools.Generated_Artifacts is
    type Hash_Function is not null access function (Text : String) return String;
-   type String_List is array (Positive range <>) of access constant String;
+   --  A named access type (not an anonymous one) so that callers building a
+   --  String_List with 'new String''(...)' do not trip -gnatw_a.
+   type Constant_String_Access is access constant String;
+   type String_List is array (Positive range <>) of Constant_String_Access;
 
    procedure Check_Data_Manifest
      (Errors          : in out Natural;

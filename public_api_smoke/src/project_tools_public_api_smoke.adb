@@ -4,8 +4,6 @@ with Ada.Strings.Unbounded;
 with GNAT.OS_Lib;
 
 with Project_Tools.Alire_Manifests;
-with Project_Tools.Alire_Manifests.Staging;
-with Project_Tools.Alire_Manifests.Validation;
 with Project_Tools.Files;
 with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
@@ -35,7 +33,6 @@ begin
          Args    => Args,
          Quiet   => True) = 0);
 
-
    declare
       Check : constant Project_Tools.Release_Checks.Checker :=
         Project_Tools.Release_Checks.Create (Ada.Directories.Current_Directory);
@@ -49,27 +46,7 @@ begin
 
    --  Compile-only API checks for facade and child package visibility.
    declare
-      procedure Facade_Copy
-        (Template : String;
-         Target   : String;
-         Quiet    : Boolean := False)
-      renames Project_Tools.Alire_Manifests.Copy_Release_Manifest;
 
-      procedure Staging_Copy
-        (Template : String;
-         Target   : String;
-         Quiet    : Boolean := False)
-      renames Project_Tools.Alire_Manifests.Staging.Copy_Release_Manifest;
-
-      procedure Facade_Check
-        (Manifest : String;
-         Quiet    : Boolean := False)
-      renames Project_Tools.Alire_Manifests.Require_No_Local_Pins;
-
-      procedure Validation_Check
-        (Manifest : String;
-         Quiet    : Boolean := False)
-      renames Project_Tools.Alire_Manifests.Validation.Require_No_Local_Pins;
    begin
       null;
    end;

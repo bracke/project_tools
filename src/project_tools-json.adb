@@ -1,5 +1,5 @@
-with Ada.Characters.Latin_1;
 with Ada.Strings.Unbounded;
+with Ada.Characters.Latin_1;
 
 package body Project_Tools.JSON is
    use Ada.Strings.Unbounded;
@@ -482,4 +482,45 @@ package body Project_Tools.JSON is
       when others =>
          return "";
    end Find_Object_Field;
+
+   procedure For_Each_Array_Object_Field
+     (Text    : String;
+      Field   : String;
+      Process : not null access procedure (Value : String))
+   is
+      Pos        : Natural := Text'First;
+      Item_First : Natural;
+      Item_Last  : Natural;
+      Item_Kind  : Value_Kind;
+   begin
+      Skip_WS (Text, Pos);
+      if Pos > Text'Last or else Text (Pos) /= '[' then
+         return;
+      end if;
+      Pos := Pos + 1;
+
+      loop
+         Skip_WS (Text, Pos);
+         exit when Pos > Text'Last or else Text (Pos) = ']';
+         Value_Slice (Text, Pos, Item_First, Item_Last, Item_Kind);
+
+         if Item_Kind = Object_Value and then Item_First > 0 then
+            declare
+               Value : constant String :=
+                 Object_Field_Value (Text (Item_First .. Item_Last), Field);
+            begin
+               if Value'Length > 0 then
+                  Process (Value);
+               end if;
+            end;
+         end if;
+
+         Skip_WS (Text, Pos);
+         exit when Pos > Text'Last or else Text (Pos) /= ',';
+         Pos := Pos + 1;
+      end loop;
+   exception
+      when others =>
+         null;
+   end For_Each_Array_Object_Field;
 end Project_Tools.JSON;

@@ -2,7 +2,6 @@ with Ada.Command_Line;
 with Ada.Containers.Vectors;
 with Ada.Directories;
 with Ada.Streams;
-with Ada.Strings.Unbounded;
 with Ada.Streams.Stream_IO;
 with Ada.Text_IO;
 
@@ -125,7 +124,6 @@ package body Project_Tools.Files is
          return False;
    end File_Starts_With_File;
 
-
    procedure Fail_Requirement
      (Path    : String;
       Message : String;
@@ -201,7 +199,6 @@ package body Project_Tools.Files is
          Fail_Requirement (Path, Message, Quiet);
       end if;
    end Require_File_Starts_With_File;
-
 
    function Contains_Name (Names : Name_List; Name : String) return Boolean is
    begin
@@ -572,7 +569,7 @@ package body Project_Tools.Files is
    function List_Tree
      (Root         : String;
       Name_Pattern : String := "*";
-      Skip_Entries : Name_List := (1 .. 0 => <>))
+      Skip_Entries : Name_List := [1 .. 0 => <>])
       return Path_List
    is
       Matcher   : constant GNAT.Regexp.Regexp :=

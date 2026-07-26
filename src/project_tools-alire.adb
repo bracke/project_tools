@@ -2,15 +2,15 @@ package body Project_Tools.Alire is
    function Noninteractive_Update_Args return GNAT.OS_Lib.Argument_List is
    begin
       return
-        (1 => new String'("--non-interactive"),
-         2 => new String'("update"));
+        [1 => new String'("--non-interactive"),
+         2 => new String'("update")];
    end Noninteractive_Update_Args;
 
    function Noninteractive_Build_Args return GNAT.OS_Lib.Argument_List is
    begin
       return
-        (1 => new String'("--non-interactive"),
-         2 => new String'("build"));
+        [1 => new String'("--non-interactive"),
+         2 => new String'("build")];
    end Noninteractive_Build_Args;
 
    function Noninteractive_Exec_Args

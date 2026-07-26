@@ -1,30 +1,19 @@
-with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Strings.Unbounded;
-with Ada.Text_IO;
 
 with GNAT.OS_Lib;
 
-with AUnit;
 with AUnit.Assertions;
-with AUnit.Simple_Test_Cases;
 
-with Project_Tools.Alire_Manifests;
-with Project_Tools.Ada_Source;
-with Project_Tools.AUnit_Checks;
 with Project_Tools.Files;
-with Project_Tools.JSON;
 with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
-with Project_Tools.Security_Corpus;
 with Project_Tools.Text;
-with Project_Tools.Tree_Checks;
 
 with Project_Tools_Test_Suite.Support;
 
 package body Project_Tools_Test_Suite.Processes_Tests is
    use AUnit.Assertions;
-   use Ada.Strings.Unbounded;
    use type GNAT.OS_Lib.String_Access;
    use Project_Tools_Test_Suite.Support;
 
@@ -120,7 +109,7 @@ package body Project_Tools_Test_Suite.Processes_Tests is
       pragma Unreferenced (Item);
       Echo_Path : GNAT.OS_Lib.String_Access := GNAT.OS_Lib.Locate_Exec_On_Path ("echo");
       Args      : GNAT.OS_Lib.Argument_List (1 .. 1) :=
-        (1 => new String'("project-tools-capture"));
+        [1 => new String'("project-tools-capture")];
       Output    : Ada.Strings.Unbounded.Unbounded_String;
       Status    : Integer;
    begin

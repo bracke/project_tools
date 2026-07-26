@@ -5,10 +5,19 @@ version = "0.1.0-dev"
 executables = ["project_tools_tests"]
 
 [[depends-on]]
+gnat_native = "=15.2.1"
+
+[[depends-on]]
 project_tools = "*"
 
 [[depends-on]]
-aunit = "*"
+aunit = "^26.0.0"
 
 [[pins]]
 project_tools = { path = ".." }
+
+# Build dependencies in the development profile (-Og) too, not the default
+# release (-O3), so this root and the parent share project_tools object files
+# rather than forcing each other into full rebuilds.
+[build-profiles]
+"*" = "development"

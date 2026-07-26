@@ -1,9 +1,7 @@
 with Ada.Command_Line;
-with Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
-with Project_Tools.Files;
 with Project_Tools.Text;
 
 package body Project_Tools.Security_Corpus is

@@ -1,20 +1,20 @@
-with "../project_tools.gpr";
-with "aunit";
+with "config/project_tools_tests_config.gpr";
 
 project Project_Tools_Tests is
 
-   for Source_Dirs use ("src/");
-   for Object_Dir use "obj";
+   for Source_Dirs use ("src/", "config/");
+   for Object_Dir use "obj/" & Project_Tools_Tests_Config.Build_Profile;
    for Exec_Dir use "bin";
    for Create_Missing_Dirs use "True";
    for Main use ("project_tools_tests.adb");
 
    package Compiler is
-      for Default_Switches ("Ada") use ("-gnat2022", "-gnatyM120", "-gnatX", "-gnatwU");
+      for Default_Switches ("Ada") use
+        Project_Tools_Tests_Config.Ada_Compiler_Switches & ("-gnat2022", "-gnatyM120", "-gnatX");
    end Compiler;
 
    package Binder is
-      for Switches ("Ada") use ("-Es");
+      for Switches ("Ada") use ("-Es"); --  Symbolic traceback
    end Binder;
 
 end Project_Tools_Tests;

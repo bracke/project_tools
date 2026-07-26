@@ -1,30 +1,23 @@
 with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Strings.Unbounded;
-with Ada.Text_IO;
 
 with GNAT.OS_Lib;
 
-with AUnit;
 with AUnit.Assertions;
-with AUnit.Simple_Test_Cases;
 
 with Project_Tools.Alire_Manifests;
 with Project_Tools.Alire;
 with Project_Tools.Ada_Source;
-with Project_Tools.AUnit_Checks;
 with Project_Tools.Coverage_Ratchets;
 with Project_Tools.Files;
 with Project_Tools.Generated_Artifacts;
 with Project_Tools.Generated_Docs;
 with Project_Tools.JSON;
-with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
-with Project_Tools.Security_Corpus;
 with Project_Tools.Source_Budgets;
 with Project_Tools.Text;
 with Project_Tools.TOML;
-with Project_Tools.Tree_Checks;
 
 with Project_Tools_Test_Suite.Support;
 
@@ -429,10 +422,10 @@ package body Project_Tools_Test_Suite.Files_Tests is
       end;
 
       declare
-         Exec_Args : GNAT.OS_Lib.Argument_List :=
+         Exec_Args : constant GNAT.OS_Lib.Argument_List :=
            Project_Tools.Alire.Noninteractive_Exec_Args
              ([new String'("gprbuild"), new String'("-P"), new String'("test.gpr")]);
-         Build_Args : GNAT.OS_Lib.Argument_List :=
+         Build_Args : constant GNAT.OS_Lib.Argument_List :=
            Project_Tools.Alire.Noninteractive_Build_Args;
       begin
          Assert (Exec_Args (1).all = "--non-interactive", "Alire exec args are noninteractive");
@@ -813,6 +806,29 @@ package body Project_Tools_Test_Suite.Files_Tests is
       Assert
         (Project_Tools.JSON.Object_Field_Value (Text, "size") = "",
          "object-local lookup does not inspect nested metadata");
+
+      --  A top-level array of objects, the GitHub directory-listing shape:
+      --  every object's "name" is visited, non-object and field-less items are
+      --  skipped.
+      declare
+         Listing : constant String :=
+           "[{""name"":""a.xml"",""type"":""file""}," &
+           "{""name"":""b.xml""},{""type"":""dir""},{""name"":""c.xml""}]";
+         Buffer  : String (1 .. 64);
+         Last    : Natural := 0;
+         procedure Collect (Value : String) is
+         begin
+            Buffer (Last + 1 .. Last + Value'Length) := Value;
+            Last := Last + Value'Length + 1;
+            Buffer (Last) := ';';
+         end Collect;
+      begin
+         Project_Tools.JSON.For_Each_Array_Object_Field
+           (Listing, "name", Collect'Access);
+         Assert
+           (Buffer (1 .. Last) = "a.xml;b.xml;c.xml;",
+            "each array object's name field is visited, others skipped");
+      end;
    end Run_Test;
 
 end Project_Tools_Test_Suite.Files_Tests;

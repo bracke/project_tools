@@ -107,7 +107,7 @@ package Project_Tools.Files is
    function List_Tree
      (Root         : String;
       Name_Pattern : String := "*";
-      Skip_Entries : Name_List := (1 .. 0 => <>))
+      Skip_Entries : Name_List := [1 .. 0 => <>])
       return Path_List;
    --  Recursively collect the ordinary files under Root whose simple name
    --  matches the glob Name_Pattern (for example "*.ads"), skipping any
