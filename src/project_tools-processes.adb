@@ -121,7 +121,7 @@ package body Project_Tools.Processes is
       Quiet   : Boolean := False) return Integer
    is
       Previous  : constant String := Ada.Directories.Current_Directory;
-      Temp_Dir  : constant String := "/tmp";
+      Temp_Dir  : constant String := Project_Tools.Files.Temp_Dir;
       Max_Temp_Attempts : constant := 50_000;
       FD        : GNAT.OS_Lib.File_Descriptor;
       Temp_Name : GNAT.OS_Lib.String_Access;
