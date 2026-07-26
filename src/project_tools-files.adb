@@ -27,8 +27,12 @@ package body Project_Tools.Files is
          return Env ("TMP");
       elsif Env ("TEMP") /= "" then
          return Env ("TEMP");
-      else
+      elsif Ada.Directories.Exists ("/tmp") then
          return "/tmp";
+      else
+         --  No temp variable and no /tmp (e.g. Windows with a stripped
+         --  environment): fall back to the current directory, always writable.
+         return ".";
       end if;
    end Temp_Dir;
    function Exists (Path : String) return Boolean is
