@@ -1,6 +1,7 @@
 with Ada.Command_Line;
 with Ada.Containers.Vectors;
 with Ada.Directories;
+with Ada.Environment_Variables;
 with Ada.Streams;
 with Ada.Streams.Stream_IO;
 with Ada.Text_IO;
@@ -13,6 +14,23 @@ with Project_Tools.Text;
 
 package body Project_Tools.Files is
    use type Ada.Directories.File_Kind;
+
+   function Temp_Dir return String is
+      function Env (Name : String) return String is
+        (if Ada.Environment_Variables.Exists (Name)
+         then Ada.Environment_Variables.Value (Name)
+         else "");
+   begin
+      if Env ("TMPDIR") /= "" then
+         return Env ("TMPDIR");
+      elsif Env ("TMP") /= "" then
+         return Env ("TMP");
+      elsif Env ("TEMP") /= "" then
+         return Env ("TEMP");
+      else
+         return "/tmp";
+      end if;
+   end Temp_Dir;
    function Exists (Path : String) return Boolean is
    begin
       return Ada.Directories.Exists (Path);

@@ -23,6 +23,11 @@ package Project_Tools.Files is
    --  @return True when Pattern occurs in the file.
 
    function Read_Raw_File (Path : String) return String;
+
+   --  A writable temporary directory for scratch files: the first non-empty of
+   --  TMPDIR, TMP, TEMP, else "/tmp". Portable across Unix (where /tmp is the
+   --  default) and Windows (where TEMP/TMP are set but /tmp does not exist).
+   function Temp_Dir return String;
    --  @param Path File path to read byte-for-byte.
    --  @return Raw file contents as a String.
 
