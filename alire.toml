@@ -5,7 +5,7 @@ website = "https://github.com/bracke/project_tools"
 authors = ["Bent Bracke"]
 maintainers = ["Bent Bracke <bent@bracke.dk>"]
 maintainers-logins = ["bracke"]
-licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+licenses = "MIT"
 long-description = "project_tools provides small reusable helpers for Ada project check programs: text searches, filesystem predicates, raw file comparisons, and process execution helpers. Project-specific release policy remains in each project driver."
 
 tags = ["ada", "tooling", "release", "tests"]
