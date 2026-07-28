@@ -29,15 +29,18 @@ runs:
       env:
         ROOT_REPO: ${{ inputs.root }}
         SIBLING_OWNER: ${{ inputs.owner }}
+      # No associative or indexed arrays: macOS runners ship bash 3.2, so the
+      # visited-set and work-queue are space-delimited strings.
       run: |
         set -euo pipefail
         ws="${GITHUB_WORKSPACE:-$PWD}"
-        declare -A seen
-        queue=("$ROOT_REPO")
-        while [ "${#queue[@]}" -gt 0 ]; do
-          repo="${queue[0]}"; queue=("${queue[@]:1}")
-          [ -n "${seen[$repo]:-}" ] && continue
-          seen["$repo"]=1
+        seen=" "
+        queue="$ROOT_REPO"
+        while [ -n "$queue" ]; do
+          repo="${queue%% *}"
+          if [ "$repo" = "$queue" ]; then queue=""; else queue="${queue#* }"; fi
+          case "$seen" in *" $repo "*) continue;; esac
+          seen="$seen$repo "
           dir="$ws/$repo"
           [ -d "$dir" ] || continue
           # Sibling repo names = final component of every "../name" path pin in
@@ -50,6 +53,6 @@ runs:
               echo "checkout-ada-siblings: cloning $SIBLING_OWNER/$sib (pinned via $repo)"
               git clone --depth 1 "https://github.com/$SIBLING_OWNER/$sib.git" "$ws/$sib"
             fi
-            queue+=("$sib")
+            case "$seen $queue " in *" $sib "*) ;; *) queue="$queue $sib";; esac
           done
         done
