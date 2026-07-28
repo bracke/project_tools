@@ -64,3 +64,22 @@ runs:
             case "$seen $queue " in *" $sib "*) ;; *) queue="$queue $sib";; esac
           done
         done
+    - name: Cache the i18n CLDR upstream tree (CI-only; avoids the flaky 82 MB download)
+      # Building a transitive i18n dependency regenerates its data, which on a
+      # fresh CI checkout downloads the 82 MB cldr-json release from the GitHub
+      # release CDN. That fetch reaches Windows runners only intermittently,
+      # while Linux and macOS get it reliably. Cache the tree with an
+      # OS-independent key (cldr-json is portable JSON; enableCrossOsArchive
+      # shares one entry across all runners), so the reliable Linux/macOS
+      # download seeds a cache the Windows job restores -- taking Windows out of
+      # the download path from the next run onward. Gated on the manifest, so the
+      # step is inert in repos where i18n is not in the pin closure. The exact
+      # manifest hash (no restore-keys fallback) refetches on a cldr_version bump
+      # instead of serving a stale tree, and cldr-json installs atomically
+      # (staging dir + rename), so the cache only ever holds a complete tree.
+      if: hashFiles('i18n/cldr/upstream/source_manifest.txt') != ''
+      uses: actions/cache@v4
+      with:
+        path: i18n/cldr/upstream/cldr-json
+        key: cldr-json-${{ hashFiles('i18n/cldr/upstream/source_manifest.txt') }}
+        enableCrossOsArchive: true
