@@ -64,22 +64,36 @@ runs:
             case "$seen $queue " in *" $sib "*) ;; *) queue="$queue $sib";; esac
           done
         done
+    - name: Compute an OS-stable CLDR cache key
+      id: cldr_key
+      if: hashFiles('i18n/cldr/upstream/source_manifest.txt') != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        # hashFiles() diverges across runners: git checks the manifest out with
+        # CRLF on Windows and LF elsewhere, so a content hash differs by OS and a
+        # Linux-seeded cache would never match the Windows key. Normalize line
+        # endings (tr -d '\r') before hashing so the key is byte-identical on
+        # every runner -- one shared cross-OS cache entry. git is on every runner
+        # and git hash-object works outside a repository.
+        h=$(tr -d '\r' < "$GITHUB_WORKSPACE/i18n/cldr/upstream/source_manifest.txt" | git hash-object --stdin)
+        echo "key=cldr-json-$h" >> "$GITHUB_OUTPUT"
     - name: Cache the i18n CLDR upstream tree (CI-only; avoids the flaky 82 MB download)
       # Building a transitive i18n dependency regenerates its data, which on a
       # fresh CI checkout downloads the 82 MB cldr-json release from the GitHub
       # release CDN. That fetch reaches Windows runners only intermittently,
-      # while Linux and macOS get it reliably. Cache the tree with an
-      # OS-independent key (cldr-json is portable JSON; enableCrossOsArchive
-      # shares one entry across all runners), so the reliable Linux/macOS
-      # download seeds a cache the Windows job restores -- taking Windows out of
-      # the download path from the next run onward. Gated on the manifest, so the
-      # step is inert in repos where i18n is not in the pin closure. The exact
-      # manifest hash (no restore-keys fallback) refetches on a cldr_version bump
-      # instead of serving a stale tree, and cldr-json installs atomically
-      # (staging dir + rename), so the cache only ever holds a complete tree.
-      if: hashFiles('i18n/cldr/upstream/source_manifest.txt') != ''
+      # while Linux and macOS get it reliably. With the OS-stable key above and
+      # enableCrossOsArchive (cldr-json is portable JSON), the reliable
+      # Linux/macOS download seeds one shared entry the Windows job restores --
+      # taking Windows out of the download path from the next run onward. Gated
+      # on the manifest, so the step is inert in repos where i18n is not in the
+      # pin closure. The key is an exact (normalized) manifest hash with no
+      # restore-keys fallback, so a cldr_version bump refetches instead of
+      # serving a stale tree; cldr-json installs atomically (staging dir +
+      # rename), so the cache only ever holds a complete tree.
+      if: steps.cldr_key.outputs.key != ''
       uses: actions/cache@v4
       with:
         path: i18n/cldr/upstream/cldr-json
-        key: cldr-json-${{ hashFiles('i18n/cldr/upstream/source_manifest.txt') }}
+        key: ${{ steps.cldr_key.outputs.key }}
         enableCrossOsArchive: true
