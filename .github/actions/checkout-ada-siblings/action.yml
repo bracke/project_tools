@@ -50,8 +50,16 @@ runs:
                  | tr -d '"' | sed 's#.*/##' | sort -u || true)
           for sib in $sibs; do
             if [ ! -e "$ws/$sib" ]; then
-              echo "checkout-ada-siblings: cloning $SIBLING_OWNER/$sib (pinned via $repo)"
-              git clone --depth 1 "https://github.com/$SIBLING_OWNER/$sib.git" "$ws/$sib"
+              # A pin can reference a crate this CI job does not build (a private
+              # or optional sibling the curated hand-lists deliberately omitted).
+              # Skip a clone that fails rather than aborting: the build itself
+              # then fails only if a genuinely-needed sibling is truly missing.
+              if git clone --depth 1 "https://github.com/$SIBLING_OWNER/$sib.git" "$ws/$sib" 2>/dev/null; then
+                echo "checkout-ada-siblings: cloned $SIBLING_OWNER/$sib (pinned via $repo)"
+              else
+                echo "checkout-ada-siblings: skipped $SIBLING_OWNER/$sib (unavailable; pinned via $repo)"
+                continue
+              fi
             fi
             case "$seen $queue " in *" $sib "*) ;; *) queue="$queue $sib";; esac
           done
