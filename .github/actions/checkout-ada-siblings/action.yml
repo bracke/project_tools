@@ -1,0 +1,55 @@
+name: Check out Ada sibling crates
+description: >
+  Clone the transitive closure of path-pinned sibling crates next to the root
+  repo, driven by the alire.toml pins themselves (root and sub-crate manifests)
+  rather than a hand-maintained checkout list. This keeps a repo's CI correct
+  when the dependency graph changes -- a new transitive pin is picked up
+  automatically instead of silently breaking the build.
+
+  Assumptions matching this workspace: crates are flat siblings under the GitHub
+  workspace, each pinned as `{ path = "../name" }` (or `../../name` from a
+  sub-crate), the pin's final path component is the sibling's repo name, and the
+  repos are public (cloned unauthenticated). The root repo must already be
+  checked out (e.g. via actions/checkout with `path: <root>`).
+
+inputs:
+  root:
+    description: Directory name of the already-checked-out root repo.
+    required: true
+  owner:
+    description: GitHub owner to clone siblings from.
+    required: false
+    default: ${{ github.repository_owner }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check out sibling crates (transitive pin closure)
+      shell: bash
+      env:
+        ROOT_REPO: ${{ inputs.root }}
+        SIBLING_OWNER: ${{ inputs.owner }}
+      run: |
+        set -euo pipefail
+        ws="${GITHUB_WORKSPACE:-$PWD}"
+        declare -A seen
+        queue=("$ROOT_REPO")
+        while [ "${#queue[@]}" -gt 0 ]; do
+          repo="${queue[0]}"; queue=("${queue[@]:1}")
+          [ -n "${seen[$repo]:-}" ] && continue
+          seen["$repo"]=1
+          dir="$ws/$repo"
+          [ -d "$dir" ] || continue
+          # Sibling repo names = final component of every "../name" path pin in
+          # any alire.toml under this repo (covers sub-crate manifests too).
+          sibs=$(find "$dir" -name alire.toml -exec \
+                   grep -hoE '"(\.\./)+[A-Za-z0-9_]+"' {} + 2>/dev/null \
+                 | tr -d '"' | sed 's#.*/##' | sort -u || true)
+          for sib in $sibs; do
+            if [ ! -e "$ws/$sib" ]; then
+              echo "checkout-ada-siblings: cloning $SIBLING_OWNER/$sib (pinned via $repo)"
+              git clone --depth 1 "https://github.com/$SIBLING_OWNER/$sib.git" "$ws/$sib"
+            fi
+            queue+=("$sib")
+          done
+        done
