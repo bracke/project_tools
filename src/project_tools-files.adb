@@ -638,4 +638,22 @@ package body Project_Tools.Files is
          end loop;
       end return;
    end List_Tree;
+
+   function Any_File_Contains
+     (Root    : String;
+      Pattern : String)
+      return Boolean is
+   begin
+      if not Directory_Exists (Root) then
+         return False;
+      end if;
+
+      for Path of List_Tree (Root) loop
+         if File_Contains (Ada.Strings.Unbounded.To_String (Path), Pattern) then
+            return True;
+         end if;
+      end loop;
+
+      return False;
+   end Any_File_Contains;
 end Project_Tools.Files;

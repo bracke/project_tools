@@ -205,4 +205,15 @@ package Project_Tools.Files is
    --  @param Marker_File File name or relative path that identifies the root.
    --  @return Full path of the first directory containing Marker_File, or an
    --          empty string when no matching ancestor exists.
+
+   function Any_File_Contains
+     (Root    : String;
+      Pattern : String)
+      return Boolean;
+   --  Whether any ordinary file under Root (searched recursively) contains
+   --  Pattern. A missing Root yields False. Useful for architecture/wiring
+   --  assertions that must survive code moving between files.
+   --  @param Root Directory to search recursively.
+   --  @param Pattern Literal substring to look for.
+   --  @return True when some file under Root contains Pattern.
 end Project_Tools.Files;
