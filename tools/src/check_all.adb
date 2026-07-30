@@ -5,6 +5,7 @@ with Ada.Exceptions;
 with Ada.Text_IO;
 
 with GNAT.OS_Lib;
+with Project_Tools.Ada_Source;
 with Project_Tools.Files;
 with Project_Tools.Processes;
 with Project_Tools.Release_Checks;
@@ -195,6 +196,67 @@ begin
    Require_Text ("public_api_smoke/src/project_tools_public_api_smoke.adb", "Project_Tools.Release_Checks");
    Require_Text ("README.md", "Project_Tools.Release_Checks");
    Require_Text ("README.md", "check_generated_artifacts");
+
+   --  The rule this crate publishes, applied to this crate.
+   --
+   --  Require_Public_GNATdoc_Tags is project_tools' own answer to "is the
+   --  interface documented", and cryptolib has been the only caller. Every
+   --  other gate here, including this one, checked that a name appeared in a
+   --  README -- which a name can do without anything being explained. A
+   --  description and @param/@return on the declaration is the thing itself,
+   --  and it is where an Ada reader looks first.
+   declare
+      Search  : Ada.Directories.Search_Type;
+      Item    : Ada.Directories.Directory_Entry_Type;
+      Scanned      : Natural := 0;
+      Undocumented : Natural := 0;
+
+      procedure Scan (Folder : String) is
+      begin
+         if not Ada.Directories.Exists (Folder) then
+            return;
+         end if;
+         Ada.Directories.Start_Search
+           (Search, Folder, "*.ads",
+            Filter => [Ada.Directories.Ordinary_File => True, others => False]);
+         while Ada.Directories.More_Entries (Search) loop
+            Ada.Directories.Get_Next_Entry (Search, Item);
+            --  Tags after the declaration: that is this crate's convention,
+            --  and the default of True made the check pass for the wrong
+            --  reason -- the block before a declaration is the previous
+            --  declaration's tags, so all but the first in each package
+            --  matched their neighbour's.
+            --  Each spec is asked on its own and the failure noted, so one
+            --  undocumented file does not hide the rest. Reporting the first
+            --  and stopping turns a day's work into a queue of single-file
+            --  runs.
+            begin
+               Project_Tools.Ada_Source.Require_Public_GNATdoc_Tags
+                 (Spec_Path   => Ada.Directories.Full_Name (Item),
+                  Tags_Before => False);
+            exception
+               when Program_Error =>
+                  Undocumented := Undocumented + 1;
+            end;
+            Scanned := Scanned + 1;
+         end loop;
+         Ada.Directories.End_Search (Search);
+      end Scan;
+   begin
+      --  Every per-OS directory, for the reason cryptolib gives: naming two of
+      --  three is how a backend goes unchecked.
+      Scan (Root & "/src");
+      Scan (Root & "/src-linux");
+      Scan (Root & "/src-macos");
+      Scan (Root & "/src-windows");
+      Scan (Root & "/src-unsupported");
+      Put_Line
+        ("==> GNATdoc tags (" & Scanned'Image & " specs,"
+         & Undocumented'Image & " undocumented)");
+      if Undocumented /= 0 then
+         raise Program_Error;
+      end if;
+   end;
 
    Check_Ada_Only_Tooling;
 

@@ -6,30 +6,56 @@ package Project_Tools.Release_Checks is
    type Checker is tagged private;
 
    function Create (Root : String) return Checker;
+   --  A checker rooted at a project, so every Require_* below takes a path
+   --  relative to it rather than each caller composing one.
+   --  @param Root Project root the relative paths are resolved against.
+   --  @return A checker for that root.
 
    procedure Require_File
      (Check         : Checker;
       Relative_Path : String;
       Quiet         : Boolean := False);
+   --  Require an ordinary file to exist.
+   --  @param Check Checker naming the project root.
+   --  @param Relative_Path File that must be present, relative to that root.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_Directory
      (Check         : Checker;
       Relative_Path : String;
       Quiet         : Boolean := False);
+   --  Require a directory to exist.
+   --  @param Check Checker naming the project root.
+   --  @param Relative_Path Directory that must be present.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_Text
      (Check         : Checker;
       Relative_Path : String;
       Text          : String;
       Quiet         : Boolean := False);
+   --  Require a file to contain a substring. It says the text is there, not
+   --  that it means anything -- a document can name a thing and explain
+   --  nothing about it.
+   --  @param Check Checker naming the project root.
+   --  @param Relative_Path File to read.
+   --  @param Text Substring that must occur in it.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_Absolute_File
      (Path  : String;
       Quiet : Boolean := False);
+   --  Require a file to exist at a path given in full, for callers working
+   --  outside a checker's root.
+   --  @param Path Absolute path to the file.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_Absolute_Directory
      (Path  : String;
       Quiet : Boolean := False);
+   --  Require a directory to exist at a path given in full.
+   --  @param Path Absolute path to the directory.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_Clean_Git_Worktree
      (Label : String;
@@ -44,12 +70,18 @@ package Project_Tools.Release_Checks is
      (Dirs : Project_Tools.Files.Path_List)
       return String;
    --  Return newline-separated nonempty `.stderr` files below Dirs.
+   --  @param Dirs Directories to walk.
+   --  @return The offending paths, newline-separated, or "" when a build left
+   --          nothing on standard error.
 
    function Ada_Build_Processes
      (Path_Token : String := "")
       return String;
    --  Return visible Alire/GPR/GNAT process diagnostics, optionally filtered
    --  by a path token.
+   --  @param Path_Token Only report processes whose command line holds this;
+   --         empty reports all of them.
+   --  @return The diagnostics, or "" when no such process is running.
 
    procedure Wait_For_Workspace_Build_Lock
      (Lock_Path       : String;
@@ -65,12 +97,19 @@ package Project_Tools.Release_Checks is
       Owner     : String;
       Quiet     : Boolean := False);
    --  Atomically create Lock_Path as a directory and write Owner metadata.
+   --  A directory is the lock because creating one is atomic where creating a
+   --  file and then writing it is not.
+   --  @param Lock_Path Workspace-level lock directory to create.
+   --  @param Owner Metadata identifying who holds it, for a stale lock.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Remove_Workspace_Build_Lock
      (Lock_Path : String;
       Quiet     : Boolean := False);
    --  Remove a lock directory created by this process. Missing paths are
    --  ignored.
+   --  @param Lock_Path Lock directory to remove.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Require_GPR_Main_Inventory
      (Project_File                   : String;
@@ -119,6 +158,12 @@ package Project_Tools.Release_Checks is
       Program : String;
       Args    : GNAT.OS_Lib.Argument_List;
       Quiet   : Boolean := False) renames Project_Tools.Processes.Run;
+   --  Run a command and fail the check when it does not succeed.
+   --  @param Label Human-readable name for the step in diagnostics.
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Arguments passed to Program.
+   --  @param Quiet Suppress informational diagnostics when True.
 
    procedure Fail (Message : String; Quiet : Boolean := False);
    --  Report a release-check failure: emit Message, set the failure exit

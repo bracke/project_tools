@@ -19,6 +19,16 @@ package Project_Tools.Generated_Artifacts is
    --  one of those values. When Max_Shard_Lines is nonzero, `*-shard` kinds
    --  must stay within that line cap and have a non-shard parent artifact with
    --  matching owner, source, and marker metadata.
+   --  @param Errors Error counter incremented for each manifest failure.
+   --  @param Root Project root the manifest paths are resolved against.
+   --  @param Manifest_Path Manifest to validate.
+   --  @param Expected_Count Entries the manifest must hold; a manifest that has
+   --         quietly emptied would otherwise pass while measuring nothing.
+   --  @param Hash Hash applied to each artifact, so the snapshot in the
+   --         manifest can be compared against the file as it stands.
+   --  @param Allowed_Kinds Kinds an entry may declare; empty allows any.
+   --  @param Max_Shard_Lines Line cap for *-shard kinds; zero disables it.
+   --  @param Quiet Suppress diagnostics when True.
 
    procedure Print_Data_Manifest
      (Root          : String;
@@ -27,4 +37,8 @@ package Project_Tools.Generated_Artifacts is
       Hash          : Hash_Function);
    --  Print a refreshed generated/native artifact manifest, preserving
    --  metadata fields from the existing manifest and recomputing line/hash.
+   --  @param Root Project root the manifest paths are resolved against.
+   --  @param Manifest_Path Manifest to refresh; it is read, not written.
+   --  @param Header Header line to print above the entries.
+   --  @param Hash Hash applied to each artifact when recomputing the snapshot.
 end Project_Tools.Generated_Artifacts;

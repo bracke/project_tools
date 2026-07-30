@@ -23,6 +23,11 @@ package Project_Tools.Files is
    --  @return True when Pattern occurs in the file.
 
    function Read_Raw_File (Path : String) return String;
+   --  Read a file whole, bytes as they are: no encoding assumed, no line
+   --  endings normalised. A check comparing generated output against a stored
+   --  copy has to see what is actually there.
+   --  @param Path File to read.
+   --  @return The file contents, or "" when it cannot be read.
 
    --  A writable temporary directory for scratch files: the first non-empty of
    --  TMPDIR, TMP, TEMP, else "/tmp". Portable across Unix (where /tmp is the

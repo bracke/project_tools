@@ -76,8 +76,9 @@ package Project_Tools.Ada_Source is
    --  Visit each `when others` choice that belongs to an Ada exception
    --  handler. Case alternatives, comments, and string literals are ignored.
    --  @param Source_Path Ada source file to inspect.
-   --  @param Visit Callback invoked with the original source line for each
-   --         broad exception handler choice.
+   --  @param Visit Callback invoked once per broad exception handler choice.
+   --  @param Line_Number Line the choice was found on, counting from one.
+   --  @param Source_Line The original source line, untouched.
 
    procedure Require_Unique_String_Returns
      (Source_Path   : String;

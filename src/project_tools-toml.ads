@@ -39,6 +39,10 @@ package Project_Tools.TOML is
       From : Positive)
       return Natural_Parse_Result;
    --  Parse a natural value after Key at or after From.
+   --  @param Text TOML document to read.
+   --  @param Key Key to look for.
+   --  @param From Position to start looking at.
+   --  @return The value and whether it was found and well formed.
 
    function Parse_String_After
      (Text : String;
@@ -46,6 +50,10 @@ package Project_Tools.TOML is
       From : Positive)
       return String_Parse_Result;
    --  Parse a quoted string value after Key at or after From.
+   --  @param Text TOML document to read.
+   --  @param Key Key to look for.
+   --  @param From Position to start looking at.
+   --  @return The value and whether it was found and well formed.
 
    function Parse_Boolean_After
      (Text : String;
@@ -53,6 +61,10 @@ package Project_Tools.TOML is
       From : Positive)
       return Boolean_Parse_Result;
    --  Parse a TOML boolean value after Key at or after From.
+   --  @param Text TOML document to read.
+   --  @param Key Key to look for.
+   --  @param From Position to start looking at.
+   --  @return The value and whether it was found and well formed.
 
    function Natural_Value_After
      (Text : String;
@@ -60,6 +72,11 @@ package Project_Tools.TOML is
       From : Positive)
       return Natural;
    --  Return the parsed natural value, or 0 when missing or malformed.
+   --  @param Text TOML document to read.
+   --  @param Key Key to look for.
+   --  @param From Position to start looking at.
+   --  @return The value, or 0. A caller that must tell zero from absent
+   --          wants Parse_Natural_After instead.
 
    function String_Value_After
      (Text : String;
@@ -67,6 +84,10 @@ package Project_Tools.TOML is
       From : Positive)
       return String;
    --  Return the parsed quoted string value, or "" when missing or malformed.
+   --  @param Text TOML document to read.
+   --  @param Key Key to look for.
+   --  @param From Position to start looking at.
+   --  @return The value, or "".
 
    function Quoted_Value_After
      (Text : String;
@@ -74,6 +95,10 @@ package Project_Tools.TOML is
       From : Positive)
       return String renames String_Value_After;
    --  Backward-compatible name for simple quoted value lookups.
+   --  @param Text TOML document to read.
+   --  @param Key Key to look for.
+   --  @param From Position to start looking at.
+   --  @return What String_Value_After returns.
 
    generic
       with procedure Process (Entry_Pos : Positive);
@@ -81,4 +106,7 @@ package Project_Tools.TOML is
      (Text    : String;
       Section : String);
    --  Iterate every `[[Section]]` entry position in Text.
+   --  @param Text TOML document to read.
+   --  @param Section Section name, without the brackets.
+   --  @param Entry_Pos Position of each entry, passed to Process.
 end Project_Tools.TOML;
