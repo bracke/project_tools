@@ -1,5 +1,5 @@
 name = "project_tools"
-description = "Shared Project release and test tooling helpers"
+description = "Building blocks for project-local check programs"
 version = "0.1.0"
 website = "https://github.com/bracke/project_tools"
 authors = ["Bent Bracke"]
@@ -8,7 +8,7 @@ maintainers-logins = ["bracke"]
 licenses = "MIT"
 long-description = "project_tools provides small reusable helpers for Ada project check programs: text searches, filesystem predicates, raw file comparisons, and process execution helpers. Project-specific release policy remains in each project driver."
 
-tags = ["ada", "tooling", "release", "tests"]
+tags = ["tooling", "release", "tests", "checks"]
 
 [[depends-on]]
 gnat_native = "=15.2.1"
