@@ -51,12 +51,29 @@ specific project belongs in that project's own tools crate.
   assertion; `check_all` builds it and runs it.
 - Aggregate gate: `(cd tools && alr build) && tools/bin/check_all`, run from the
   crate root. This is the one to run before calling a change done. Its steps are
-  `alr build`, GNATprove, `alr test`, the tests build, the AUnit suite, and the
-  public-API smoke build and run; on top of those it scans the tree for the
-  Ada-only tooling rule below and asserts that certain sources exist and that
-  `README.md` still mentions them. It does **not** run
-  `check_generated_artifacts` — that binary is for consuming projects to call,
-  and `check_all` only checks that its source is present and documented.
+  three warnings-as-errors builds (see below), then `alr build`, GNATprove,
+  `alr test`, the tests build, the AUnit suite, and the public-API smoke build
+  and run; on top of those it scans the tree for the Ada-only tooling rule below
+  and asserts that certain sources exist and that `README.md` still mentions
+  them. It does **not** run `check_generated_artifacts` — that binary is for
+  consuming projects to call, and `check_all` only checks that its source is
+  present and documented.
+- **Style and warnings are enforced, and which switches you get depends on the
+  Alire build profile rather than on `project_tools.gpr`.** The manifest pins
+  `"*" = "development"`, which supplies `-gnatwa`, `-gnatVa` and the full
+  `-gnaty` set — but development only *reports* them. `--validation` adds
+  `-gnatwe`, which makes each an error, and `check_all` runs it forced over the
+  library, `tests/` and `public_api_smoke/`:
+
+  ```sh
+  alr build --validation -- -f
+  ```
+
+  Forced, because a warning surfaces only when its file recompiles. `tools/` is
+  deliberately not gated: it holds the binary running the check, and relinking a
+  running executable fails for reasons unrelated to style. All three gated
+  crates were clean when this was switched on, so any breach you see is one you
+  introduced.
 
 ## SPARK
 

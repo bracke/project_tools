@@ -27,6 +27,9 @@ alr test
 Run these checks before every project_tools release:
 
 ```sh
+alr build --validation -- -f
+(cd tests && alr build --validation -- -f)
+(cd public_api_smoke && alr build --validation -- -f)
 alr build
 alr exec -- gnatprove -P project_tools.gpr --level=0 --mode=check
 alr test

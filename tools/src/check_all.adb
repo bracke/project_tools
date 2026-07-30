@@ -198,6 +198,32 @@ begin
 
    Check_Ada_Only_Tooling;
 
+   --  Warnings and style, made to fail rather than merely print.
+   --
+   --  The switches come from the Alire profile, not from project_tools.gpr.
+   --  This crate pins "*" = "development" in its manifest, which supplies
+   --  -gnatwa, -gnatVa and the full -gnaty set -- but only reports them.
+   --  --validation adds -gnatwe, which turns each one into an error. Forced,
+   --  because a warning surfaces only when its file recompiles and an
+   --  incremental build would quietly skip the file that has one.
+   --
+   --  All three crates, because a style bar over the library alone leaves the
+   --  test and smoke sources ungoverned. tools/ is deliberately not among them:
+   --  it holds the binary running this check, and relinking it while it
+   --  executes is a way to fail for reasons that have nothing to do with style.
+   Run
+     ("library warnings as errors", Root, Alr,
+      [new String'("build"), new String'("--validation"), new String'("--"),
+       new String'("-f")]);
+   Run
+     ("tests warnings as errors", Root & "/tests", Alr,
+      [new String'("build"), new String'("--validation"), new String'("--"),
+       new String'("-f")]);
+   Run
+     ("public API smoke warnings as errors", Root & "/public_api_smoke", Alr,
+      [new String'("build"), new String'("--validation"), new String'("--"),
+       new String'("-f")]);
+
    Run ("alr build", Root, Alr, [1 => new String'("build")]);
    Run
      ("project_tools GNATprove", Root, Alr,
