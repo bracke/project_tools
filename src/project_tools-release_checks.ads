@@ -74,6 +74,20 @@ package Project_Tools.Release_Checks is
    --  @return The offending paths, newline-separated, or "" when a build left
    --          nothing on standard error.
 
+   function Stale_Doc_Scaffolding (Root : String) return String;
+   --  Return newline-separated "<relative-doc>: <phrase>" for each forward-
+   --  looking scaffolding phrase found in the narrative docs under Root, or ""
+   --  when they describe only the current state. A V1 doc must not keep an
+   --  early-phase preamble like "this shows the intended shape" or "the APIs
+   --  land in phase N" -- it both misleads and tends to drift from the real
+   --  signatures. Scanned docs: README.md, AI.md, and docs/ARCHITECTURE.md /
+   --  INTEGRATION.md / QUICKSTART.md (missing files skipped). Phrases, matched
+   --  case-insensitively on the first letter: "intended shape", "lands in
+   --  phase", "land in phase", "will land", "coming in phase", "planned for
+   --  phase", "not yet implemented", "not yet supported".
+   --  @param Root Project root the doc paths are resolved against.
+   --  @return Offending "<doc>: <phrase>" lines, newline-separated, or "".
+
    function Ada_Build_Processes
      (Path_Token : String := "")
       return String;

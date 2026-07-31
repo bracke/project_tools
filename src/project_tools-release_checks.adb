@@ -1,3 +1,4 @@
+with Ada.Characters.Handling;
 with Ada.Command_Line;
 with Ada.Calendar;
 with Ada.Directories;
@@ -133,6 +134,48 @@ package body Project_Tools.Release_Checks is
       Append (Command, " -type f -name '*.stderr' -size +0c -print");
       return Project_Tools.Processes.Shell_Output (To_String (Command));
    end Nonempty_Stderr_Files;
+
+   function Stale_Doc_Scaffolding (Root : String) return String is
+      Result : Unbounded_String := Null_Unbounded_String;
+
+      procedure Check_Phrase (Relative, Full, Phrase : String) is
+         Cap : String := Phrase;
+      begin
+         Cap (Cap'First) :=
+           Ada.Characters.Handling.To_Upper (Cap (Cap'First));
+         if Project_Tools.Files.File_Contains (Full, Phrase)
+           or else Project_Tools.Files.File_Contains (Full, Cap)
+         then
+            if Result /= Null_Unbounded_String then
+               Append (Result, String'(1 => ASCII.LF));
+            end if;
+            Append (Result, Relative & ": " & Phrase);
+         end if;
+      end Check_Phrase;
+
+      procedure Scan (Relative : String) is
+         Full : constant String := Root & "/" & Relative;
+      begin
+         if not Project_Tools.Files.File_Exists (Full) then
+            return;   --  absence is a required-file check's concern, not this
+         end if;
+         Check_Phrase (Relative, Full, "intended shape");
+         Check_Phrase (Relative, Full, "lands in phase");
+         Check_Phrase (Relative, Full, "land in phase");
+         Check_Phrase (Relative, Full, "will land");
+         Check_Phrase (Relative, Full, "coming in phase");
+         Check_Phrase (Relative, Full, "planned for phase");
+         Check_Phrase (Relative, Full, "not yet implemented");
+         Check_Phrase (Relative, Full, "not yet supported");
+      end Scan;
+   begin
+      Scan ("README.md");
+      Scan ("AI.md");
+      Scan ("docs/ARCHITECTURE.md");
+      Scan ("docs/INTEGRATION.md");
+      Scan ("docs/QUICKSTART.md");
+      return To_String (Result);
+   end Stale_Doc_Scaffolding;
 
    function Ada_Build_Processes
      (Path_Token : String := "")
