@@ -166,6 +166,42 @@ package Project_Tools.Release_Checks is
    --  @param Label Human-readable command label for diagnostics.
    --  @param Quiet Suppress informational diagnostics when True.
 
+   function File_Length (Path : String) return Natural;
+   --  @param Path File path to measure.
+   --  @return File length in bytes.
+
+   function FNV1A64 (Path : String) return String;
+   --  Compute the FNV-1a-64 checksum of a file, rendered as 16 lowercase hex
+   --  digits.
+   --  @param Path File path to checksum.
+   --  @return FNV-1a-64 checksum text, or sixteen zeroes when the file cannot
+   --          be read.
+
+   function Manifest_Line
+     (Root          : String;
+      Relative_Path : String)
+      return String;
+   --  Build the canonical package manifest line for Relative_Path below Root:
+   --  "<path> bytes=<n> fnv1a64=<hex>".
+   --  @param Root Package root containing Relative_Path.
+   --  @param Relative_Path Package-relative file path.
+   --  @return Manifest line without a line terminator.
+
+   function Manifest_Line_Count (Manifest_Path : String) return Natural;
+   --  @param Manifest_Path Manifest file to count.
+   --  @return Number of text lines, treating a final unterminated line as one.
+
+   procedure Require_Manifest_Entry
+     (Manifest_Path : String;
+      Root          : String;
+      Relative_Path : String;
+      Quiet         : Boolean := False);
+   --  Require the manifest to contain the canonical line for Relative_Path.
+   --  @param Manifest_Path Manifest file to inspect.
+   --  @param Root Package root containing Relative_Path.
+   --  @param Relative_Path Package-relative file path.
+   --  @param Quiet Suppress diagnostics when True.
+
    procedure Run
      (Label   : String;
       Dir     : String;

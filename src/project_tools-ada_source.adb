@@ -345,6 +345,68 @@ package body Project_Tools.Ada_Source is
          raise;
    end Require_No_Code_Tokens;
 
+   function First_Source_File_Containing
+     (Root          : String;
+      Pattern       : String;
+      Allowed_Files : Project_Tools.Files.Path_List := [1 .. 0 => <>])
+      return String
+   is
+      function Is_Allowed (Path : String) return Boolean is
+      begin
+         for Allowed of Allowed_Files loop
+            if Path = To_String (Allowed) then
+               return True;
+            end if;
+         end loop;
+         return False;
+      end Is_Allowed;
+
+      function First_In (Name_Pattern : String) return String is
+         Sources : constant Project_Tools.Files.Path_List :=
+           Project_Tools.Files.List_Tree (Root, Name_Pattern);
+      begin
+         for Path of Sources loop
+            declare
+               Name : constant String := To_String (Path);
+            begin
+               if Project_Tools.Files.File_Contains (Name, Pattern)
+                 and then not Is_Allowed (Name)
+               then
+                  return Name;
+               end if;
+            end;
+         end loop;
+         return "";
+      end First_In;
+
+      Found : constant String := First_In ("*.ads");
+   begin
+      if Found /= "" then
+         return Found;
+      else
+         return First_In ("*.adb");
+      end if;
+   end First_Source_File_Containing;
+
+   procedure Require_No_Code_Tokens_In_Tree
+     (Root             : String;
+      Forbidden_Tokens : String_List;
+      Quiet            : Boolean := False)
+   is
+      procedure Check (Name_Pattern : String) is
+         Sources : constant Project_Tools.Files.Path_List :=
+           Project_Tools.Files.List_Tree (Root, Name_Pattern);
+      begin
+         for Path of Sources loop
+            Require_No_Code_Tokens
+              (To_String (Path), Forbidden_Tokens, Quiet => Quiet);
+         end loop;
+      end Check;
+   begin
+      Check ("*.ads");
+      Check ("*.adb");
+   end Require_No_Code_Tokens_In_Tree;
+
    procedure Require_Unique_String_Returns
      (Source_Path   : String;
       Function_Name : String;

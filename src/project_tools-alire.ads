@@ -16,4 +16,16 @@ package Project_Tools.Alire is
       return GNAT.OS_Lib.Argument_List;
    --  @param Args The command and its arguments to run under "alr exec".
    --  @return Args preceded by the exec switches that will not prompt.
+
+   procedure Run_Build
+     (Directory    : String;
+      Release_Mode : Boolean := False;
+      Label        : String := "alr build");
+   --  Run a noninteractive Alire build in Directory. When alr was installed
+   --  by getada, run it with a scrubbed environment that preserves only the
+   --  derived Alire home and PATH, avoiding host-local Alire state drift in
+   --  repeatable workflow checks.
+   --  @param Directory Crate directory where alr should run.
+   --  @param Release_Mode Use --release and release profiles when True.
+   --  @param Label Human-readable command label for diagnostics.
 end Project_Tools.Alire;

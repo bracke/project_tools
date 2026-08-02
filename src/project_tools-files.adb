@@ -656,4 +656,28 @@ package body Project_Tools.Files is
 
       return False;
    end Any_File_Contains;
+
+   function First_File_Name_Containing
+     (Root         : String;
+      Name_Tokens  : Name_List;
+      Skip_Entries : Name_List := [1 .. 0 => <>])
+      return String
+   is
+   begin
+      for Path of List_Tree (Root, "*", Skip_Entries) loop
+         declare
+            Name : constant String := Ada.Strings.Unbounded.To_String (Path);
+         begin
+            for Token of Name_Tokens loop
+               if Project_Tools.Text.Contains
+                    (Name, Ada.Strings.Unbounded.To_String (Token))
+               then
+                  return Name;
+               end if;
+            end loop;
+         end;
+      end loop;
+
+      return "";
+   end First_File_Name_Containing;
 end Project_Tools.Files;

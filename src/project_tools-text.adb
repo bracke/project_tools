@@ -63,6 +63,41 @@ package body Project_Tools.Text is
         and then Value (Value'Last - Suffix'Length + 1 .. Value'Last) = Suffix;
    end Ends_With;
 
+   function Line_Value
+     (Text      : String;
+      Key       : String;
+      Separator : String := " =")
+      return String
+   is
+      Prefix : constant String := Key & Separator;
+      Start  : Positive;
+   begin
+      if Text'Length < Prefix'Length then
+         return "";
+      end if;
+
+      for Index in Text'First .. Text'Last - Prefix'Length + 1 loop
+         if (Index = Text'First or else Text (Index - 1) = Ada.Characters.Latin_1.LF)
+           and then Text (Index .. Index + Prefix'Length - 1) = Prefix
+         then
+            Start := Index + Prefix'Length;
+            if Start <= Text'Last and then Text (Start) = ' ' then
+               Start := Start + 1;
+            end if;
+
+            for Last in Start .. Text'Last loop
+               if Text (Last) = Ada.Characters.Latin_1.LF then
+                  return Text (Start .. Last - 1);
+               end if;
+            end loop;
+
+            return Text (Start .. Text'Last);
+         end if;
+      end loop;
+
+      return "";
+   end Line_Value;
+
    function Read_Text_File (Path : String) return Unbounded_String is
       File   : Ada.Text_IO.File_Type;
       Result : Unbounded_String := Null_Unbounded_String;

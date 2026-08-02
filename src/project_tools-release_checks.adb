@@ -2,12 +2,17 @@ with Ada.Characters.Handling;
 with Ada.Command_Line;
 with Ada.Calendar;
 with Ada.Directories;
+with Ada.Streams;
+with Ada.Streams.Stream_IO;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;
+with Interfaces;
 
 with Project_Tools.Text;
 
 package body Project_Tools.Release_Checks is
+   use type Interfaces.Unsigned_64;
+
    function Create (Root : String) return Checker is
       Result : Checker;
    begin
@@ -443,6 +448,86 @@ package body Project_Tools.Release_Checks is
       when Program_Error =>
          Fail (Label & " expected-output check failed", Quiet);
    end Require_Program_Output_Matches_Fenced_Text;
+
+   function File_Length (Path : String) return Natural is
+     (Natural (Ada.Directories.Size (Path)));
+
+   function Hex_64 (Value : Interfaces.Unsigned_64) return String is
+      Hex_Digits : constant String := "0123456789abcdef";
+      Result     : String (1 .. 16);
+      Work       : Interfaces.Unsigned_64 := Value;
+   begin
+      for Index in reverse Result'Range loop
+         Result (Index) := Hex_Digits (Natural (Work mod 16) + 1);
+         Work := Work / 16;
+      end loop;
+      return Result;
+   end Hex_64;
+
+   function FNV1A64 (Path : String) return String is
+      package SIO renames Ada.Streams.Stream_IO;
+      File       : SIO.File_Type;
+      Buffer     : Ada.Streams.Stream_Element_Array (1 .. 8192);
+      Last       : Ada.Streams.Stream_Element_Offset;
+      FNV_Offset : constant Interfaces.Unsigned_64 := 16#cbf29ce484222325#;
+      FNV_Prime  : constant Interfaces.Unsigned_64 := 16#00000100000001b3#;
+      Result     : Interfaces.Unsigned_64 := FNV_Offset;
+   begin
+      SIO.Open (File, SIO.In_File, Path);
+      while not SIO.End_Of_File (File) loop
+         SIO.Read (File, Buffer, Last);
+         for Index in Buffer'First .. Last loop
+            Result := (Result xor Interfaces.Unsigned_64 (Buffer (Index))) * FNV_Prime;
+         end loop;
+      end loop;
+      SIO.Close (File);
+      return Hex_64 (Result);
+   exception
+      when others =>
+         if SIO.Is_Open (File) then
+            SIO.Close (File);
+         end if;
+         return "0000000000000000";
+   end FNV1A64;
+
+   function Manifest_Line
+     (Root          : String;
+      Relative_Path : String)
+      return String
+   is
+      Path : constant String := Project_Tools.Files.Join (Root, Relative_Path);
+   begin
+      return Relative_Path
+        & " bytes=" & Natural'Image (File_Length (Path))
+        & " fnv1a64=" & FNV1A64 (Path);
+   end Manifest_Line;
+
+   function Manifest_Line_Count (Manifest_Path : String) return Natural is
+      Text   : constant String :=
+        To_String (Project_Tools.Text.Read_Text_File (Manifest_Path));
+      Breaks : constant Natural := Project_Tools.Text.Count (Text, "" & ASCII.LF);
+   begin
+      if Text'Length = 0 then
+         return 0;
+      elsif Text (Text'Last) = ASCII.LF then
+         return Breaks;
+      else
+         return Breaks + 1;
+      end if;
+   end Manifest_Line_Count;
+
+   procedure Require_Manifest_Entry
+     (Manifest_Path : String;
+      Root          : String;
+      Relative_Path : String;
+      Quiet         : Boolean := False)
+   is
+      Expected_Line : constant String := Manifest_Line (Root, Relative_Path);
+   begin
+      if not Project_Tools.Files.Has_Line (Manifest_Path, Expected_Line) then
+         Fail ("package manifest missing entry: " & Relative_Path, Quiet);
+      end if;
+   end Require_Manifest_Entry;
 
    procedure Fail (Message : String; Quiet : Boolean := False) is
    begin

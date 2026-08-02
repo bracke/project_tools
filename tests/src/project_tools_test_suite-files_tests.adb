@@ -48,6 +48,14 @@ package body Project_Tools_Test_Suite.Files_Tests is
       Assert (Project_Tools.Text.Count ("aaaa", "aa") = 2, "count advances by pattern length");
       Assert (Project_Tools.Text.Count ("abc", "") = 0, "count ignores empty patterns");
       Assert
+        (Project_Tools.Text.Line_Value
+           ("alpha = one" & ASCII.LF & "beta = two" & ASCII.LF, "beta") = "two",
+         "line value reads catalog-style values");
+      Assert
+        (Project_Tools.Text.Line_Value
+           ("name=value" & ASCII.LF, "name", Separator => "=") = "value",
+         "line value supports caller-selected separators");
+      Assert
         (Project_Tools.Files.File_Contains
            ("README.md", "alr exec -- gnatprove -P project_tools.gpr --level=0 --mode=check")
          or else Project_Tools.Files.File_Contains
@@ -85,6 +93,8 @@ package body Project_Tools_Test_Suite.Files_Tests is
          "name = ""example""" & ASCII.LF
          & "[[depends-on]]" & ASCII.LF
          & "dep = ""*""" & ASCII.LF);
+      Ada.Directories.Create_Path (Root & "/scan/sub");
+      Write_File (Root & "/scan/sub/tool.py", "print('not Ada workflow')" & ASCII.LF);
 
       Assert (Project_Tools.Files.Exists (Text_Path), "exists sees files");
       Assert (Project_Tools.Files.File_Exists (Text_Path), "file exists sees ordinary files");
@@ -97,6 +107,12 @@ package body Project_Tools_Test_Suite.Files_Tests is
       Assert
         (Project_Tools.Files.Read_Raw_File (Text_Path)'Length > Project_Tools.Files.Read_Raw_File (Prefix_Path)'Length,
          "raw file reader preserves bytes");
+      Assert
+        (Project_Tools.Files.First_File_Name_Containing
+           (Root & "/scan",
+            [To_Unbounded_String (".py")])
+         = Root & "/scan/sub/tool.py",
+         "filename token scanner reports first matching tree path");
       Project_Tools.Alire_Manifests.Require_Workspace_Pin
         (Root & "/alire.toml", "dep", "../dep", Quiet => True);
       Project_Tools.Alire_Manifests.Require_No_Local_Pins
@@ -178,12 +194,31 @@ package body Project_Tools_Test_Suite.Files_Tests is
       declare
          Check : constant Project_Tools.Release_Checks.Checker :=
            Project_Tools.Release_Checks.Create (Root);
+         Line  : constant String :=
+           Project_Tools.Release_Checks.Manifest_Line (Root, "text.txt");
       begin
          Project_Tools.Release_Checks.Require_File (Check, "text.txt", Quiet => True);
          Project_Tools.Release_Checks.Require_Directory (Check, "staged", Quiet => True);
          Project_Tools.Release_Checks.Require_Text (Check, "text.txt", "gamma", Quiet => True);
          Project_Tools.Release_Checks.Require_Absolute_File (Text_Path, Quiet => True);
          Project_Tools.Release_Checks.Require_Absolute_Directory (Root, Quiet => True);
+         Assert
+           (Project_Tools.Text.Contains (Line, "text.txt bytes=")
+            and then Project_Tools.Text.Contains (Line, " fnv1a64="),
+            "release manifest line includes byte count and FNV-1a-64");
+         Write_File (Root & "/MANIFEST.txt", Line & ASCII.LF);
+         Project_Tools.Release_Checks.Require_Manifest_Entry
+           (Root & "/MANIFEST.txt", Root, "text.txt", Quiet => True);
+         Assert
+           (Project_Tools.Release_Checks.Manifest_Line_Count (Root & "/MANIFEST.txt") = 1,
+            "release manifest line count handles final newline");
+         Project_Tools.Files.Write_Raw_File (Root & "/empty.bin", "");
+         Assert
+           (Project_Tools.Release_Checks.File_Length (Root & "/empty.bin") = 0,
+            "release file length reports empty files");
+         Assert
+           (Project_Tools.Release_Checks.FNV1A64 (Root & "/empty.bin") = "cbf29ce484222325",
+            "FNV-1a-64 helper uses standard offset basis for empty files");
       end;
       Ada.Directories.Create_Path (Root & "/tools/fuzz");
       Write_File
@@ -272,6 +307,32 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Quiet => True);
       Project_Tools.Ada_Source.Require_Unique_String_Returns
         (Root & "/policy-ok.adb", "Key", Allow_Empty => True, Quiet => True);
+      Ada.Directories.Create_Path (Root & "/srcpolicy");
+      Write_File
+        (Root & "/srcpolicy/bridge.adb",
+         "with Messages;" & ASCII.LF
+         & "procedure Bridge is begin null; end Bridge;" & ASCII.LF);
+      Write_File
+        (Root & "/srcpolicy/presentation.ads",
+         "with Terminal_Styles;" & ASCII.LF
+         & "package Presentation is end Presentation;" & ASCII.LF);
+      Write_File
+        (Root & "/srcpolicy/comments.adb",
+         "procedure Comments is begin null; end Comments; -- gawk" & ASCII.LF);
+      Assert
+        (Project_Tools.Ada_Source.First_Source_File_Containing
+           (Root & "/srcpolicy",
+            "with Messages",
+            Allowed_Files => [To_Unbounded_String (Root & "/srcpolicy/bridge.adb")]) = "",
+         "source tree scanner honors exact allowed files");
+      Assert
+        (Project_Tools.Ada_Source.First_Source_File_Containing
+           (Root & "/srcpolicy", "with Terminal_Styles") = Root & "/srcpolicy/presentation.ads",
+         "source tree scanner reports first unexpected source file");
+      Project_Tools.Ada_Source.Require_No_Code_Tokens_In_Tree
+        (Root & "/srcpolicy",
+         [To_Unbounded_String ("gawk"), To_Unbounded_String ("mawk")],
+         Quiet => True);
       Write_File
         (Root & "/exception-scan.adb",
          "package body Exception_Scan is" & ASCII.LF

@@ -1,4 +1,5 @@
 with Ada.Strings.Unbounded;
+with Project_Tools.Files;
 
 package Project_Tools.Ada_Source is
    type String_List is
@@ -65,6 +66,27 @@ package Project_Tools.Ada_Source is
    --  Require Ada source code, with line comments stripped, to contain none of
    --  the forbidden tokens.
    --  @param Source_Path Ada source file to inspect.
+   --  @param Forbidden_Tokens Tokens that must not appear outside comments.
+   --  @param Quiet Suppress diagnostics when True.
+
+   function First_Source_File_Containing
+     (Root          : String;
+      Pattern       : String;
+      Allowed_Files : Project_Tools.Files.Path_List := [1 .. 0 => <>])
+      return String;
+   --  Return the first .ads/.adb file below Root containing Pattern, excluding
+   --  exact paths listed in Allowed_Files.
+   --  @param Root Source root to walk.
+   --  @param Pattern Literal substring to find.
+   --  @param Allowed_Files Exact paths permitted to contain Pattern.
+   --  @return The first unexpected path, or "" when no unexpected file matches.
+
+   procedure Require_No_Code_Tokens_In_Tree
+     (Root             : String;
+      Forbidden_Tokens : String_List;
+      Quiet            : Boolean := False);
+   --  Apply Require_No_Code_Tokens to every .ads and .adb source below Root.
+   --  @param Root Source root to walk.
    --  @param Forbidden_Tokens Tokens that must not appear outside comments.
    --  @param Quiet Suppress diagnostics when True.
 

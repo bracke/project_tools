@@ -131,6 +131,18 @@ package Project_Tools.Files is
    --  @param Skip_Entries simple names of subdirectories to skip
    --  @return the matching file paths, Root-relative when Root is relative
 
+   function First_File_Name_Containing
+     (Root         : String;
+      Name_Tokens  : Name_List;
+      Skip_Entries : Name_List := [1 .. 0 => <>])
+      return String;
+   --  Recursively find the first ordinary file path whose name/path contains
+   --  any caller-provided token, using List_Tree traversal order.
+   --  @param Root Directory to walk.
+   --  @param Name_Tokens Literal tokens to match against each collected path.
+   --  @param Skip_Entries Simple names of subdirectories to skip.
+   --  @return The first matching path, or "" when no file matches.
+
    procedure Copy_Release_Source_Tree
      (Source_Dir      : String;
       Target_Dir      : String;

@@ -39,6 +39,19 @@ package Project_Tools.Text is
    --  @param Suffix Required trailing substring.
    --  @return True when Value ends with Suffix.
 
+   function Line_Value
+     (Text      : String;
+      Key       : String;
+      Separator : String := " =")
+      return String;
+   --  Return the value from the first line beginning with Key & Separator.
+   --  A single blank after the separator is skipped. This is for simple
+   --  generated/catalog text checks, not for structured formats such as TOML.
+   --  @param Text Text containing line-feed separated key/value lines.
+   --  @param Key Key that must appear at the start of a line.
+   --  @param Separator Text between Key and the value.
+   --  @return The remainder of the matching line, or "" when absent.
+
    function Read_Text_File (Path : String) return Ada.Strings.Unbounded.Unbounded_String;
    --  @param Path File path to read.
    --  @return File contents with line-feed separators, or an empty string on read failure.
