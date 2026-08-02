@@ -300,6 +300,21 @@ package body Project_Tools.Files is
          Quiet           => Quiet);
    end Copy_Release_Source_Tree;
 
+   procedure Copy_File
+     (Source          : String;
+      Target          : String;
+      Failure_Message : String := "failed to copy file";
+      Quiet           : Boolean := False) is
+   begin
+      Ada.Directories.Copy_File
+        (Source_Name => Source,
+         Target_Name => Target,
+         Form        => "mode=overwrite");
+   exception
+      when others =>
+         Fail_Requirement (Source, Failure_Message, Quiet);
+   end Copy_File;
+
    procedure Delete_Tree (Path : String) is
       --  Ada.Directories.Delete_Tree walks INTO a symbolic link that points at a
       --  directory, because Kind follows the link. A tree containing a link back

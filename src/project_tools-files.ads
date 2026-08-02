@@ -156,6 +156,17 @@ package Project_Tools.Files is
    --  @param Skip_Files Simple ordinary file names to skip.
    --  @param Quiet Suppress diagnostics when True.
 
+   procedure Copy_File
+     (Source          : String;
+      Target          : String;
+      Failure_Message : String := "failed to copy file";
+      Quiet           : Boolean := False);
+   --  Copy one ordinary file, replacing Target when it already exists.
+   --  @param Source Source file path.
+   --  @param Target Target file path.
+   --  @param Failure_Message Diagnostic prefix to emit on copy failure.
+   --  @param Quiet Suppress diagnostics when True.
+
    procedure Delete_Tree (Path : String);
    --  Recursively delete Path when it exists.
    --  @param Path File or directory tree to remove.
