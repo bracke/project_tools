@@ -83,6 +83,22 @@ package Project_Tools.Processes is
    --  @param Output Receives the child's captured standard output.
    --  @param Quiet Suppress informational output when True.
 
+   function Command_Output
+     (Command    : String;
+      Arguments  : GNAT.OS_Lib.Argument_List;
+      Input      : String := "";
+      Status     : access Integer := null;
+      Err_To_Out : Boolean := False) return String;
+   --  Run Command with Arguments and capture its output.
+   --  This helper is intended for tests and workflow probes that need to feed
+   --  standard input and capture the resulting output without invoking a shell.
+   --  @param Command Executable to run.
+   --  @param Arguments Argument list passed to Command.
+   --  @param Input Standard input for the child process.
+   --  @param Status Child status receiver.
+   --  @param Err_To_Out Whether standard error is merged into output.
+   --  @return Captured command output.
+
    --  POSIX shell helpers. Unlike the Program/Args helpers above, these run
    --  commands through /bin/sh and are POSIX-oriented.
 

@@ -4,6 +4,8 @@ with Ada.Strings;
 with Ada.Strings.Fixed;
 with Ada.Text_IO;
 
+with GNAT.Expect;
+
 with Project_Tools.Files;
 with Project_Tools.Text;
 
@@ -216,6 +218,22 @@ package body Project_Tools.Processes is
          raise Program_Error;
       end if;
    end Run;
+
+   function Command_Output
+     (Command    : String;
+      Arguments  : GNAT.OS_Lib.Argument_List;
+      Input      : String := "";
+      Status     : access Integer := null;
+      Err_To_Out : Boolean := False) return String is
+   begin
+      return
+        GNAT.Expect.Get_Command_Output
+          (Command    => Command,
+           Arguments  => Arguments,
+           Input      => Input,
+           Status     => Status,
+           Err_To_Out => Err_To_Out);
+   end Command_Output;
 
    function Shell_Quote (Value : String) return String is
       use Ada.Strings.Unbounded;
