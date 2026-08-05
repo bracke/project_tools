@@ -13,6 +13,38 @@ package body Project_Tools.Processes is
    use type GNAT.OS_Lib.String_Access;
    use type GNAT.OS_Lib.File_Descriptor;
 
+   function Argument (Value : String) return Unbounded_String is
+     (Ada.Strings.Unbounded.To_Unbounded_String (Value));
+
+   function No_Arguments return Argument_Vectors.Vector is
+      Result : Argument_Vectors.Vector;
+   begin
+      return Result;
+   end No_Arguments;
+
+   function Arguments (Items : Argument_Items) return Argument_Vectors.Vector is
+      Result : Argument_Vectors.Vector;
+   begin
+      for Item of Items loop
+         Result.Append (Item);
+      end loop;
+
+      return Result;
+   end Arguments;
+
+   function To_OS_Arguments
+     (Args : Argument_Vectors.Vector) return GNAT.OS_Lib.Argument_List
+   is
+      Result : GNAT.OS_Lib.Argument_List (1 .. Natural (Args.Length));
+   begin
+      for Index in 1 .. Natural (Args.Length) loop
+         Result (Index) :=
+           new String'(Ada.Strings.Unbounded.To_String (Args.Element (Index)));
+      end loop;
+
+      return Result;
+   end To_OS_Arguments;
+
    procedure Free_Args (Args : in out GNAT.OS_Lib.Argument_List) is
    begin
       for Arg of Args loop
@@ -94,6 +126,25 @@ package body Project_Tools.Processes is
          raise;
    end Run_Status;
 
+   function Run_Status
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Quiet   : Boolean := False) return Integer
+   is
+      OS_Args : GNAT.OS_Lib.Argument_List := To_OS_Arguments (Args);
+      Result  : Integer;
+   begin
+      Result := Run_Status (Label, Dir, Program, OS_Args, Quiet);
+      Free_Args (OS_Args);
+      return Result;
+   exception
+      when others =>
+         Free_Args (OS_Args);
+         raise;
+   end Run_Status;
+
    procedure Run
      (Label   : String;
       Dir     : String;
@@ -112,6 +163,23 @@ package body Project_Tools.Processes is
          Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
          raise Program_Error;
       end if;
+   end Run;
+
+   procedure Run
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Quiet   : Boolean := False)
+   is
+      OS_Args : GNAT.OS_Lib.Argument_List := To_OS_Arguments (Args);
+   begin
+      Run (Label, Dir, Program, OS_Args, Quiet);
+      Free_Args (OS_Args);
+   exception
+      when others =>
+         Free_Args (OS_Args);
+         raise;
    end Run;
 
    function Run_Status
@@ -197,6 +265,26 @@ package body Project_Tools.Processes is
          raise;
    end Run_Status;
 
+   function Run_Status
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Output  : out Unbounded_String;
+      Quiet   : Boolean := False) return Integer
+   is
+      OS_Args : GNAT.OS_Lib.Argument_List := To_OS_Arguments (Args);
+      Result  : Integer;
+   begin
+      Result := Run_Status (Label, Dir, Program, OS_Args, Output, Quiet);
+      Free_Args (OS_Args);
+      return Result;
+   exception
+      when others =>
+         Free_Args (OS_Args);
+         raise;
+   end Run_Status;
+
    procedure Run
      (Label   : String;
       Dir     : String;
@@ -219,6 +307,24 @@ package body Project_Tools.Processes is
       end if;
    end Run;
 
+   procedure Run
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Output  : out Unbounded_String;
+      Quiet   : Boolean := False)
+   is
+      OS_Args : GNAT.OS_Lib.Argument_List := To_OS_Arguments (Args);
+   begin
+      Run (Label, Dir, Program, OS_Args, Output, Quiet);
+      Free_Args (OS_Args);
+   exception
+      when others =>
+         Free_Args (OS_Args);
+         raise;
+   end Run;
+
    function Command_Output
      (Command    : String;
       Arguments  : GNAT.OS_Lib.Argument_List;
@@ -234,6 +340,66 @@ package body Project_Tools.Processes is
            Status     => Status,
            Err_To_Out => Err_To_Out);
    end Command_Output;
+
+   function Command_Output
+     (Command    : String;
+      Arguments  : Argument_Vectors.Vector;
+      Input      : String := "";
+      Status     : access Integer := null;
+      Err_To_Out : Boolean := False) return String
+   is
+      OS_Args : GNAT.OS_Lib.Argument_List := To_OS_Arguments (Arguments);
+   begin
+      return Result : constant String :=
+        Command_Output (Command, OS_Args, Input, Status, Err_To_Out)
+      do
+         Free_Args (OS_Args);
+      end return;
+   exception
+      when others =>
+         Free_Args (OS_Args);
+         raise;
+   end Command_Output;
+
+   function Capture
+     (Label      : String;
+      Dir        : String;
+      Program    : String;
+      Args       : Argument_Vectors.Vector;
+      Quiet      : Boolean := True) return Captured_Process
+   is
+      Output : Unbounded_String;
+      Status : constant Integer :=
+        Run_Status
+          (Label   => Label,
+           Dir     => Dir,
+           Program => Program,
+           Args    => Args,
+           Output  => Output,
+           Quiet   => Quiet);
+   begin
+      return (Status => Status, Output => Output);
+   end Capture;
+
+   function Capture_Command
+     (Command    : String;
+      Arguments  : Argument_Vectors.Vector;
+      Input      : String := "";
+      Err_To_Out : Boolean := False) return Captured_Process
+   is
+      Status : aliased Integer := -1;
+      Output : constant String :=
+        Command_Output
+          (Command    => Command,
+           Arguments  => Arguments,
+           Input      => Input,
+           Status     => Status'Access,
+           Err_To_Out => Err_To_Out);
+   begin
+      return
+        (Status => Status,
+         Output => Ada.Strings.Unbounded.To_Unbounded_String (Output));
+   end Capture_Command;
 
    function Shell_Quote (Value : String) return String is
       use Ada.Strings.Unbounded;

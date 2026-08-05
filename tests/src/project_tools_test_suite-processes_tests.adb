@@ -110,6 +110,9 @@ package body Project_Tools_Test_Suite.Processes_Tests is
       Echo_Path : GNAT.OS_Lib.String_Access := GNAT.OS_Lib.Locate_Exec_On_Path ("echo");
       Args      : GNAT.OS_Lib.Argument_List (1 .. 1) :=
         [1 => new String'("project-tools-capture")];
+      Managed_Args : constant Project_Tools.Processes.Argument_Vectors.Vector :=
+        Project_Tools.Processes.Arguments
+          ([Project_Tools.Processes.Argument ("managed-capture")]);
       Output    : Ada.Strings.Unbounded.Unbounded_String;
       Status    : Integer;
    begin
@@ -129,6 +132,47 @@ package body Project_Tools_Test_Suite.Processes_Tests is
         (Project_Tools.Text.Contains
            (Ada.Strings.Unbounded.To_String (Output), "project-tools-capture"),
          "Run_Status output overload returns the child's standard output");
+      Status :=
+        Project_Tools.Processes.Run_Status
+          (Label   => "managed capture echo",
+           Dir     => Ada.Directories.Current_Directory,
+           Program => Echo_Path.all,
+           Args    => Managed_Args,
+           Output  => Output,
+           Quiet   => True);
+      Assert (Status = 0, "managed captured run returns child status");
+      Assert
+        (Project_Tools.Text.Contains
+           (Ada.Strings.Unbounded.To_String (Output), "managed-capture"),
+         "managed Run_Status output overload captures standard output");
+
+      declare
+         Captured : constant Project_Tools.Processes.Captured_Process :=
+           Project_Tools.Processes.Capture
+             (Label   => "captured echo",
+              Dir     => Ada.Directories.Current_Directory,
+              Program => Echo_Path.all,
+              Args    => Managed_Args,
+              Quiet   => True);
+      begin
+         Assert (Captured.Status = 0, "Capture returns child status");
+         Assert
+           (Project_Tools.Text.Contains
+              (Ada.Strings.Unbounded.To_String (Captured.Output), "managed-capture"),
+            "Capture returns child output");
+      end;
+      declare
+         Captured : constant Project_Tools.Processes.Captured_Process :=
+           Project_Tools.Processes.Capture_Command
+             (Command   => Echo_Path.all,
+              Arguments => Managed_Args);
+      begin
+         Assert (Captured.Status = 0, "Capture_Command returns child status");
+         Assert
+           (Project_Tools.Text.Contains
+              (Ada.Strings.Unbounded.To_String (Captured.Output), "managed-capture"),
+            "Capture_Command returns child output");
+      end;
 
       Write_File
         (Root & "/expected.md",

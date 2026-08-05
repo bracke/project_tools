@@ -1,8 +1,32 @@
 with Ada.Strings.Unbounded;
+with Ada.Containers.Vectors;
 with GNAT.OS_Lib;
 
 package Project_Tools.Processes is
    subtype Unbounded_String is Ada.Strings.Unbounded.Unbounded_String;
+
+   package Argument_Vectors is new Ada.Containers.Vectors
+     (Index_Type   => Positive,
+      Element_Type => Unbounded_String,
+      "="          => Ada.Strings.Unbounded."=");
+
+   type Captured_Process is record
+      Status : Integer := -1;
+      Output : Unbounded_String;
+   end record;
+
+   function Argument (Value : String) return Unbounded_String;
+   --  @param Value Argument text.
+   --  @return Value as a process argument vector element.
+
+   function No_Arguments return Argument_Vectors.Vector;
+   --  @return Empty vector for calls that take no process arguments.
+
+   type Argument_Items is array (Positive range <>) of Unbounded_String;
+
+   function Arguments (Items : Argument_Items) return Argument_Vectors.Vector;
+   --  @param Items Argument vector elements.
+   --  @return Process argument vector preserving Items order.
 
    function Locate_Command (Name : String) return String;
    --  @param Name Executable name to find on PATH.
@@ -35,6 +59,14 @@ package Project_Tools.Processes is
    --  @param Quiet Suppress informational output when True.
    --  @return Child process exit status.
 
+   function Run_Status
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Quiet   : Boolean := False) return Integer;
+   --  As Run_Status above, but accepts a managed argument vector.
+
    procedure Run
      (Label   : String;
       Dir     : String;
@@ -46,6 +78,14 @@ package Project_Tools.Processes is
    --  @param Program Executable to run.
    --  @param Args Argument list passed to Program.
    --  @param Quiet Suppress informational output when True.
+
+   procedure Run
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Quiet   : Boolean := False);
+   --  As Run above, but accepts a managed argument vector.
 
    function Run_Status
      (Label   : String;
@@ -65,6 +105,15 @@ package Project_Tools.Processes is
    --  @param Quiet Suppress informational output when True.
    --  @return Child process exit status.
 
+   function Run_Status
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Output  : out Unbounded_String;
+      Quiet   : Boolean := False) return Integer;
+   --  As captured Run_Status above, but accepts a managed argument vector.
+
    procedure Run
      (Label   : String;
       Dir     : String;
@@ -83,6 +132,15 @@ package Project_Tools.Processes is
    --  @param Output Receives the child's captured standard output.
    --  @param Quiet Suppress informational output when True.
 
+   procedure Run
+     (Label   : String;
+      Dir     : String;
+      Program : String;
+      Args    : Argument_Vectors.Vector;
+      Output  : out Unbounded_String;
+      Quiet   : Boolean := False);
+   --  As captured Run above, but accepts a managed argument vector.
+
    function Command_Output
      (Command    : String;
       Arguments  : GNAT.OS_Lib.Argument_List;
@@ -98,6 +156,29 @@ package Project_Tools.Processes is
    --  @param Status Child status receiver.
    --  @param Err_To_Out Whether standard error is merged into output.
    --  @return Captured command output.
+
+   function Command_Output
+     (Command    : String;
+      Arguments  : Argument_Vectors.Vector;
+      Input      : String := "";
+      Status     : access Integer := null;
+      Err_To_Out : Boolean := False) return String;
+   --  As Command_Output above, but accepts a managed argument vector.
+
+   function Capture
+     (Label      : String;
+      Dir        : String;
+      Program    : String;
+      Args       : Argument_Vectors.Vector;
+      Quiet      : Boolean := True) return Captured_Process;
+   --  Run Program and return status plus captured standard output.
+
+   function Capture_Command
+     (Command    : String;
+      Arguments  : Argument_Vectors.Vector;
+      Input      : String := "";
+      Err_To_Out : Boolean := False) return Captured_Process;
+   --  Run Command and return status plus captured output.
 
    --  POSIX shell helpers. Unlike the Program/Args helpers above, these run
    --  commands through /bin/sh and are POSIX-oriented.
