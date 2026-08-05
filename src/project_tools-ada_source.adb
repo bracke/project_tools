@@ -407,6 +407,68 @@ package body Project_Tools.Ada_Source is
       Check ("*.adb");
    end Require_No_Code_Tokens_In_Tree;
 
+   function First_Source_File_With_Code_Token
+     (Root             : String;
+      Forbidden_Tokens : String_List;
+      Skip_Names       : Project_Tools.Files.Name_List := [1 .. 0 => <>])
+      return String
+   is
+      function File_Has_Token (Source_Path : String) return Boolean is
+         File   : Ada.Text_IO.File_Type;
+         Buffer : String (1 .. 4096);
+         Last   : Natural;
+         Found  : Boolean := False;
+
+         procedure Check_Token (Token : String) is
+         begin
+            for Forbidden of Forbidden_Tokens loop
+               if Token = Lower (To_String (Forbidden)) then
+                  Found := True;
+                  return;
+               end if;
+            end loop;
+         end Check_Token;
+      begin
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+         while not Found and then not Ada.Text_IO.End_Of_File (File) loop
+            Ada.Text_IO.Get_Line (File, Buffer, Last);
+            For_Each_Code_Token (Buffer (1 .. Last), Check_Token'Access);
+         end loop;
+         Ada.Text_IO.Close (File);
+         return Found;
+      exception
+         when others =>
+            if Ada.Text_IO.Is_Open (File) then
+               Ada.Text_IO.Close (File);
+            end if;
+            raise;
+      end File_Has_Token;
+
+      function Search (Name_Pattern : String) return String is
+         Sources : constant Project_Tools.Files.Path_List :=
+           Project_Tools.Files.List_Tree (Root, Name_Pattern, Skip_Names);
+      begin
+         for Path of Sources loop
+            declare
+               Source_Path : constant String := To_String (Path);
+            begin
+               if File_Has_Token (Source_Path) then
+                  return Source_Path;
+               end if;
+            end;
+         end loop;
+         return "";
+      end Search;
+
+      Found : constant String := Search ("*.ads");
+   begin
+      if Found /= "" then
+         return Found;
+      else
+         return Search ("*.adb");
+      end if;
+   end First_Source_File_With_Code_Token;
+
    procedure Require_Unique_String_Returns
      (Source_Path   : String;
       Function_Name : String;

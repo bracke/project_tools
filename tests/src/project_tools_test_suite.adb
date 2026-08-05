@@ -187,6 +187,9 @@ package body Project_Tools_Test_Suite is
       Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Tree_Check_Helper_Test));
       Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Checks_Tests.Security_Corpus_Helper_Test));
       Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.JSON_Helper_Test));
+      Result.Add_Test (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.Gcov_Helper_Test));
+      Result.Add_Test
+        (Test_Case_Access'(new Project_Tools_Test_Suite.Files_Tests.Ada_Source_Query_Test));
       Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Text_Contains)));
       Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_Text_Count)));
       Result.Add_Test (Test_Case_Access'(new Focused_Test (Area => Focus_File_Exists)));

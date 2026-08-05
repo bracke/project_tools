@@ -106,16 +106,27 @@ tools/bin/check_generated_artifacts "catalogs up to date" \
 
 `Project_Tools.Processes` contains wrappers around `GNAT.OS_Lib.Spawn` for running a program in a selected directory, either failing the current tool or returning the child status.
 
-`Project_Tools.Ada_Source` contains Ada identifier/reserved-word helpers and
-public-spec GNATdoc tag enforcement for check programs.
+`Project_Tools.Ada_Source` contains Ada identifier/reserved-word helpers,
+public-spec GNATdoc tag enforcement, allowed-with-clause checks, and reusable
+source-token scans for check programs. `First_Source_File_With_Code_Token`
+walks `.ads` and `.adb` files, skips caller-provided directory names, and
+ignores comments and string literals when looking for forbidden code tokens.
 
 `Project_Tools.AUnit_Checks` contains AUnit suite metrics, split-suite
 structure checks, and registration/documentation inventory checks for test
 package sets.
 
+`Project_Tools.Gcov` contains reusable gcov summary parsing and minimum
+line-coverage threshold checks. It expects callers to choose and run the gcov
+commands appropriate for their project layout.
+
 `Project_Tools.Release_Checks` contains root-relative release assertion wrappers
 for check programs, absolute installed-artifact checks, GPR main inventory
 checks, and a `Run` rename for process steps.
+
+`Project_Tools.Test_Fixtures` contains reusable AUnit/test fixture helpers,
+including temporary-directory lifecycle utilities and deterministic seed-based
+text generation for property-style and fuzz-style tests.
 
 `Project_Tools.Tree_Checks` contains recursive tree hygiene checks, including
 generated Python artifact checks, forbidden-token checks, and non-empty

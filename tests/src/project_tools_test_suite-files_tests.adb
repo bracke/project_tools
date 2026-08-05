@@ -11,12 +11,14 @@ with Project_Tools.Alire;
 with Project_Tools.Ada_Source;
 with Project_Tools.Coverage_Ratchets;
 with Project_Tools.Files;
+with Project_Tools.Gcov;
 with Project_Tools.Generated_Artifacts;
 with Project_Tools.Generated_Docs;
 with Project_Tools.JSON;
 with Project_Tools.Release_Checks;
 with Project_Tools.Source_Budgets;
 with Project_Tools.Text;
+with Project_Tools.Test_Fixtures;
 with Project_Tools.TOML;
 
 with Project_Tools_Test_Suite.Support;
@@ -25,6 +27,7 @@ package body Project_Tools_Test_Suite.Files_Tests is
    use AUnit.Assertions;
    use Ada.Strings.Unbounded;
    use type GNAT.OS_Lib.String_Access;
+   use type Project_Tools.Test_Fixtures.Deterministic_Seed;
    use Project_Tools_Test_Suite.Support;
 
    function Toy_Hash (Text : String) return String is
@@ -104,6 +107,37 @@ package body Project_Tools_Test_Suite.Files_Tests is
       Assert
         (Project_Tools.Files.File_Starts_With_File (Text_Path, Prefix_Path),
          "prefix comparison accepts matching prefix file");
+      declare
+         First_Seed  : Project_Tools.Test_Fixtures.Deterministic_Seed :=
+           16#1234_5678#;
+         Second_Seed : Project_Tools.Test_Fixtures.Deterministic_Seed :=
+           16#1234_5678#;
+         First_Value  : Natural;
+         Second_Value : Natural;
+      begin
+         Project_Tools.Test_Fixtures.Advance (First_Seed, First_Value);
+         Project_Tools.Test_Fixtures.Advance (Second_Seed, Second_Value);
+         Assert
+           (First_Seed = Second_Seed and then First_Value = Second_Value,
+            "deterministic seed advancement is stable");
+         Assert
+           (Project_Tools.Test_Fixtures.Seed_Image (First_Seed)'Length > 0,
+            "seed image is nonempty for diagnostics");
+      end;
+      Assert
+        (Project_Tools.Test_Fixtures.Generated_Text
+           (16#CAFE_BABE#, 12, (First => 'a', Last => 'c')) =
+         Project_Tools.Test_Fixtures.Generated_Text
+           (16#CAFE_BABE#, 12, (First => 'a', Last => 'c')),
+         "deterministic text generation repeats by seed");
+      Assert
+        (Project_Tools.Test_Fixtures.Generated_Text
+           (16#CAFE_BABE#,
+            12,
+            (First => 'a', Last => 'c'),
+            Include_LF => True,
+            Final_LF   => True)'Length = 12,
+         "deterministic text generation respects byte limit");
       Assert
         (Project_Tools.Files.Read_Raw_File (Text_Path)'Length > Project_Tools.Files.Read_Raw_File (Prefix_Path)'Length,
          "raw file reader preserves bytes");
@@ -890,6 +924,118 @@ package body Project_Tools_Test_Suite.Files_Tests is
            (Buffer (1 .. Last) = "a.xml;b.xml;c.xml;",
             "each array object's name field is visited, others skipped");
       end;
+   end Run_Test;
+
+   overriding function Name (Item : Gcov_Helper_Test) return AUnit.Message_String is
+      pragma Unreferenced (Item);
+   begin
+      return AUnit.Format ("Gcov helpers");
+   end Name;
+
+   overriding procedure Run_Test (Item : in out Gcov_Helper_Test) is
+      pragma Unreferenced (Item);
+      Output : constant String :=
+        "File '/tmp/project/src/a.adb'" & ASCII.LF &
+        "Lines executed:75.00% of 20" & ASCII.LF &
+        "File '/tmp/runtime/b.adb'" & ASCII.LF &
+        "Lines executed:50.00% of 10" & ASCII.LF &
+        "No executable lines" & ASCII.LF;
+      Summary : constant Project_Tools.Gcov.Coverage_Summary :=
+        Project_Tools.Gcov.Parse_Lines_Executed_Output (Output);
+      Filtered : constant Project_Tools.Gcov.Coverage_Summary :=
+        Project_Tools.Gcov.Parse_Lines_Executed_Output
+          (Output, "/tmp/project/src/");
+      Errors  : Natural := 0;
+   begin
+      Assert
+        (Project_Tools.Gcov.Covered_Lines (Summary) = 20,
+         "covered lines are summed from gcov percentages");
+      Assert
+        (Project_Tools.Gcov.Total_Lines (Summary) = 30,
+         "total executable lines are summed");
+      Assert
+        (Project_Tools.Gcov.Percent_Basis_Points (Summary) = 6666,
+         "percentage is represented in basis points");
+      Assert
+        (Project_Tools.Gcov.Percent_Image (Summary) = "66.66%",
+         "percentage image is deterministic");
+      Assert
+        (Project_Tools.Gcov.Covered_Lines (Filtered) = 15,
+         "filtered coverage keeps matching project files");
+      Assert
+        (Project_Tools.Gcov.Total_Lines (Filtered) = 20,
+         "filtered coverage excludes nonmatching files");
+
+      Project_Tools.Gcov.Require_Minimum_Line_Coverage
+        (Errors, Summary, 6_000, 30, Quiet => True);
+      Assert (Errors = 0, "coverage threshold accepts sufficient summary");
+
+      Project_Tools.Gcov.Require_Minimum_Line_Coverage
+        (Errors, Summary, 8_000, 30, Quiet => True);
+      Assert (Errors = 1, "coverage threshold rejects low percentage");
+
+      Project_Tools.Gcov.Require_Minimum_Line_Coverage
+        (Errors, Summary, 6_000, 31, Quiet => True);
+      Assert (Errors = 2, "coverage threshold rejects weak evidence");
+
+      Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Success);
+   end Run_Test;
+
+   overriding function Name (Item : Ada_Source_Query_Test) return AUnit.Message_String is
+      pragma Unreferenced (Item);
+   begin
+      return AUnit.Format ("Ada source query helpers");
+   end Name;
+
+   overriding procedure Run_Test (Item : in out Ada_Source_Query_Test) is
+      pragma Unreferenced (Item);
+      Source_Root : constant String := Root & "/ada-query";
+      Skip_List   : constant Project_Tools.Files.Name_List :=
+        [To_Unbounded_String ("obj")];
+      Forbidden   : constant Project_Tools.Ada_Source.String_List :=
+        [To_Unbounded_String ("goto")];
+   begin
+      Delete_Tree_If_Present (Root);
+      Ada.Directories.Create_Path (Source_Root & "/obj");
+      Write_File
+        (Source_Root & "/clean.adb",
+         "procedure Clean is" & ASCII.LF
+         & "   Text : constant String := ""goto in a string"";" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   null; -- goto in a comment" & ASCII.LF
+         & "end Clean;" & ASCII.LF);
+      Write_File
+        (Source_Root & "/obj/generated.adb",
+         "procedure Generated is" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   goto Done;" & ASCII.LF
+         & "   <<Done>> null;" & ASCII.LF
+         & "end Generated;" & ASCII.LF);
+
+      Assert
+        (Project_Tools.Ada_Source.First_Source_File_With_Code_Token
+           (Source_Root, Forbidden, Skip_List) = "",
+         "code-token query ignores strings, comments, and skipped paths");
+
+      Write_File
+        (Source_Root & "/bad.adb",
+         "procedure Bad is" & ASCII.LF
+         & "begin" & ASCII.LF
+         & "   goto Done;" & ASCII.LF
+         & "   <<Done>> null;" & ASCII.LF
+         & "end Bad;" & ASCII.LF);
+      Assert
+        (Project_Tools.Text.Ends_With
+           (Project_Tools.Ada_Source.First_Source_File_With_Code_Token
+              (Source_Root, Forbidden, Skip_List),
+            "/bad.adb"),
+         "code-token query reports the first source file with a real token");
+
+      Delete_Tree_If_Present (Root);
+   exception
+      when others =>
+         Delete_Tree_If_Present (Root);
+         raise;
    end Run_Test;
 
 end Project_Tools_Test_Suite.Files_Tests;

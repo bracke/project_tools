@@ -13,6 +13,60 @@ package body Project_Tools.Test_Fixtures is
 
    Counter : Natural := 0;
 
+   function Seed_Image (Seed : Deterministic_Seed) return String is
+   begin
+      return Deterministic_Seed'Image (Seed);
+   end Seed_Image;
+
+   procedure Advance
+     (Seed  : in out Deterministic_Seed;
+      Value : out Natural) is
+   begin
+      Seed := Seed * 1_664_525 + 1_013_904_223;
+      Value := Natural (Seed mod 2 ** 15);
+   end Advance;
+
+   function Generated_Text
+     (Seed           : Deterministic_Seed;
+      Max_Bytes      : Natural;
+      Alphabet       : Character_Range := (First => 'a', Last => 'z');
+      Include_LF     : Boolean := False;
+      Final_LF       : Boolean := False)
+      return String
+   is
+      State          : Deterministic_Seed := Seed;
+      Result         : Unbounded_String;
+      Value          : Natural;
+      Alphabet_First : constant Natural := Character'Pos (Alphabet.First);
+      Alphabet_Last  : constant Natural := Character'Pos (Alphabet.Last);
+      Alphabet_Count : constant Natural :=
+        (if Alphabet_Last >= Alphabet_First
+         then Alphabet_Last - Alphabet_First + 1
+         else 1);
+      Limit          : constant Natural :=
+        (if Final_LF and then Max_Bytes > 0 then Max_Bytes - 1 else Max_Bytes);
+   begin
+      for Index in 1 .. Limit loop
+         Advance (State, Value);
+         if Include_LF and then Index > 1 and then Index < Limit
+           and then Value mod 11 = 0
+         then
+            Append (Result, ASCII.LF);
+         else
+            Append
+              (Result,
+               Character'Val
+                 (Alphabet_First + Value mod Alphabet_Count));
+         end if;
+      end loop;
+
+      if Final_LF and then Max_Bytes > 0 then
+         Append (Result, ASCII.LF);
+      end if;
+
+      return To_String (Result);
+   end Generated_Text;
+
    function Next_Id return String is
    begin
       Counter := Counter + 1;

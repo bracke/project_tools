@@ -90,6 +90,19 @@ package Project_Tools.Ada_Source is
    --  @param Forbidden_Tokens Tokens that must not appear outside comments.
    --  @param Quiet Suppress diagnostics when True.
 
+   function First_Source_File_With_Code_Token
+     (Root             : String;
+      Forbidden_Tokens : String_List;
+      Skip_Names       : Project_Tools.Files.Name_List := [1 .. 0 => <>])
+      return String;
+   --  Return the first .ads/.adb file below Root that contains one of
+   --  Forbidden_Tokens as an Ada code token. Comments and string literals are
+   --  ignored.
+   --  @param Root Source root to walk.
+   --  @param Forbidden_Tokens Tokens that must not appear in Ada code.
+   --  @param Skip_Names Directory or file names to skip while walking.
+   --  @return The first matching path, or "" when no source file matches.
+
    procedure Scan_Broad_Exception_Handlers
      (Source_Path : String;
       Visit       : not null access procedure
