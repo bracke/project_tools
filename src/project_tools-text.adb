@@ -87,9 +87,24 @@ package body Project_Tools.Text is
 
             for Last in Start .. Text'Last loop
                if Text (Last) = Ada.Characters.Latin_1.LF then
+                  --  Without the carriage return before it. A file checked out
+                  --  on Windows ends its lines with CR LF, and a value that
+                  --  kept the CR compared unequal to every string anybody
+                  --  wrote it against -- which is how a manifest read there
+                  --  said its locale was "en" and matched nothing.
+                  if Last > Start
+                    and then Text (Last - 1) = Ada.Characters.Latin_1.CR
+                  then
+                     return Text (Start .. Last - 2);
+                  end if;
+
                   return Text (Start .. Last - 1);
                end if;
             end loop;
+
+            if Text (Text'Last) = Ada.Characters.Latin_1.CR then
+               return Text (Start .. Text'Last - 1);
+            end if;
 
             return Text (Start .. Text'Last);
          end if;
