@@ -54,10 +54,28 @@ runs:
               # or optional sibling the curated hand-lists deliberately omitted).
               # Skip a clone that fails rather than aborting: the build itself
               # then fails only if a genuinely-needed sibling is truly missing.
-              if git clone --depth 1 "https://github.com/$SIBLING_OWNER/$sib.git" "$ws/$sib" 2>/dev/null; then
+              #
+              # Three tries first. A clone dying halfway -- "RPC failed; curl 56
+              # Recv failure" -- is the runner's network rather than a missing
+              # repo, and skipping on that turns a transient fault into a build
+              # that fails later somewhere else, for a reason that reads as
+              # unrelated. The partial clone goes between attempts: git will not
+              # clone into a directory that already exists.
+              cloned=""
+              for attempt in 1 2 3; do
+                if git clone --depth 1 "https://github.com/$SIBLING_OWNER/$sib.git" "$ws/$sib" 2>/dev/null; then
+                  cloned="yes"
+                  break
+                fi
+
+                rm -rf "$ws/$sib"
+                [ "$attempt" = 3 ] || sleep 5
+              done
+
+              if [ -n "$cloned" ]; then
                 echo "checkout-ada-siblings: cloned $SIBLING_OWNER/$sib (pinned via $repo)"
               else
-                echo "checkout-ada-siblings: skipped $SIBLING_OWNER/$sib (unavailable; pinned via $repo)"
+                echo "checkout-ada-siblings: skipped $SIBLING_OWNER/$sib (unavailable after three tries; pinned via $repo)"
                 continue
               fi
             fi
