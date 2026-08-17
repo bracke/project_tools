@@ -1,5 +1,22 @@
 with Ada.Strings.Unbounded;
 
+--  Reading single values out of a TOML document, by scanning for a key.
+--
+--  Not a parser: these read one value at a time out of text a caller already
+--  has, which is what a repository check wants when it is asking whether one
+--  entry says what it should.
+--
+--  **A key may be given with or without its assignment.** `"version"`,
+--  `"version ="` and `"version = "` all find the same value. That was not
+--  always so, and the difference was silent: a caller that passed the bare key
+--  got the `=` where a value was expected, every parser called that malformed,
+--  and every convenience wrapper turned it into "" or zero. A check in Adash
+--  compared the version in two files that way, read nothing out of either,
+--  found the two nothings equal, and passed for years.
+--
+--  **The first occurrence that parses is the answer.** A key named in a
+--  comment above its own entry is a normal thing to find, and a reader that
+--  stopped at the first match would read the comment.
 package Project_Tools.TOML is
    subtype Unbounded_String is Ada.Strings.Unbounded.Unbounded_String;
 
@@ -40,7 +57,7 @@ package Project_Tools.TOML is
       return Natural_Parse_Result;
    --  Parse a natural value after Key at or after From.
    --  @param Text TOML document to read.
-   --  @param Key Key to look for.
+   --  @param Key Key to look for, with or without its `=`.
    --  @param From Position to start looking at.
    --  @return The value and whether it was found and well formed.
 
@@ -51,7 +68,7 @@ package Project_Tools.TOML is
       return String_Parse_Result;
    --  Parse a quoted string value after Key at or after From.
    --  @param Text TOML document to read.
-   --  @param Key Key to look for.
+   --  @param Key Key to look for, with or without its `=`.
    --  @param From Position to start looking at.
    --  @return The value and whether it was found and well formed.
 
@@ -62,7 +79,7 @@ package Project_Tools.TOML is
       return Boolean_Parse_Result;
    --  Parse a TOML boolean value after Key at or after From.
    --  @param Text TOML document to read.
-   --  @param Key Key to look for.
+   --  @param Key Key to look for, with or without its `=`.
    --  @param From Position to start looking at.
    --  @return The value and whether it was found and well formed.
 

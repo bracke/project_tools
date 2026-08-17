@@ -516,6 +516,64 @@ package body Project_Tools_Test_Suite.Files_Tests is
          Assert (Sections = 2, "TOML section iteration finds repeated entries");
       end;
 
+      --  A key with its assignment, without it, and named in a comment first.
+      --
+      --  All three are how these keys are really written and read. The bare
+      --  form used to find the `=` where a value should be and report the
+      --  entry malformed, which every convenience wrapper turned into "" --
+      --  and two nothings compare equal, so a check built on it passed
+      --  whatever the files said. The comment is the other half: the word a
+      --  caller looks for is very often written in the prose above its own
+      --  entry, and a reader that stopped at the first match read the prose.
+      declare
+         Documented : constant String :=
+           "# `version` must agree with the manifest." & ASCII.LF
+           & "version = ""1.2.3""" & ASCII.LF
+           & "count=7" & ASCII.LF
+           & "flag =true" & ASCII.LF;
+
+         use type Project_Tools.TOML.String_Parse_Status;
+      begin
+         Assert
+           (Project_Tools.TOML.String_Value_After
+              (Documented, "version = ", Documented'First) = "1.2.3",
+            "a key given with its assignment is read");
+         Assert
+           (Project_Tools.TOML.String_Value_After
+              (Documented, "version", Documented'First) = "1.2.3",
+            "a key given without its assignment is read");
+         Assert
+           (Project_Tools.TOML.String_Value_After
+              (Documented, "version =", Documented'First) = "1.2.3",
+            "a key given with an assignment and no space is read");
+         Assert
+           (Project_Tools.TOML.Natural_Value_After
+              (Documented, "count", Documented'First) = 7,
+            "a natural written without spaces around its assignment is read");
+         Assert
+           (Project_Tools.TOML.Parse_Boolean_After
+              (Documented, "flag", Documented'First).Value,
+            "a boolean written without a space after its assignment is read");
+         Assert
+           (Project_Tools.TOML.Parse_String_After
+              (Documented, "absent", Documented'First).Status
+            = Project_Tools.TOML.Missing_String,
+            "a key that is not there is missing rather than malformed");
+
+         --  And a document where the only mention is prose: nothing to read,
+         --  and saying so is what stops a caller comparing two nothings.
+         declare
+            Only_Prose : constant String :=
+              "# the version is recorded elsewhere" & ASCII.LF;
+         begin
+            Assert
+              (Project_Tools.TOML.Parse_String_After
+                 (Only_Prose, "version", Only_Prose'First).Status
+               /= Project_Tools.TOML.Parsed_String,
+               "a key named only in a comment yields no value");
+         end;
+      end;
+
       declare
          Exec_Args : constant GNAT.OS_Lib.Argument_List :=
            Project_Tools.Alire.Noninteractive_Exec_Args
