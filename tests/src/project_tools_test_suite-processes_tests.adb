@@ -65,6 +65,8 @@ package body Project_Tools_Test_Suite.Processes_Tests is
       pragma Unreferenced (Item);
       False_Path : GNAT.OS_Lib.String_Access := GNAT.OS_Lib.Locate_Exec_On_Path ("false");
       Args       : GNAT.OS_Lib.Argument_List (1 .. 0);
+      Output     : Ada.Strings.Unbounded.Unbounded_String;
+      Before     : constant String := Ada.Directories.Current_Directory;
    begin
       Assert (False_Path /= null, "false executable is available on PATH");
       Assert
@@ -89,6 +91,22 @@ package body Project_Tools_Test_Suite.Processes_Tests is
       begin
          Expect_Program_Error (Run_False'Access, "failing process raises Program_Error");
       end;
+
+      Assert
+        (Project_Tools.Processes.Run_Status
+           (Label   => "missing captured process",
+            Dir     => Before,
+            Program => Before & "/definitely-missing-project-tools-program",
+            Args    => Args,
+            Output  => Output,
+            Quiet   => True) /= 0,
+         "captured spawn failure returns a deterministic failing status");
+      Assert
+        (Ada.Strings.Unbounded.Length (Output) = 0,
+         "captured spawn failure returns empty output");
+      Assert
+        (Ada.Directories.Current_Directory = Before,
+         "captured spawn failure restores the working directory");
 
       GNAT.OS_Lib.Free (False_Path);
    exception

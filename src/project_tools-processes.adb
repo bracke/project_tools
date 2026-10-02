@@ -195,13 +195,16 @@ package body Project_Tools.Processes is
       Max_Temp_Attempts : constant := 50_000;
       FD        : GNAT.OS_Lib.File_Descriptor;
       Temp_Name : GNAT.OS_Lib.String_Access;
-      Status    : Integer;
+      Status    : Integer := -1;
+      Spawned   : Boolean := False;
 
       function Temp_Path return String is
       begin
          if Temp_Name = null then
             return "";
-         elsif Temp_Name.all'Length > 0 and then Temp_Name.all (Temp_Name.all'First) = '/' then
+         elsif Temp_Name.all'Length > 0
+           and then Temp_Name.all (Temp_Name.all'First) = '/'
+         then
             return Temp_Name.all;
          else
             return Temp_Dir & "/" & Temp_Name.all;
@@ -224,13 +227,9 @@ package body Project_Tools.Processes is
          Ada.Text_IO.Put_Line ("==> " & Label);
       end if;
 
-      --  GNAT.OS_Lib.Create_Temp_Output_File derives a candidate name from a
-      --  process-global counter and returns Invalid_FD (without retrying) when
-      --  that candidate already exists; the counter still advances. A /tmp
-      --  littered with stale GNAT-TEMP-*.TMP files -- e.g. leaked by processes
-      --  killed before cleanup -- therefore makes the first call(s) fail until
-      --  the counter steps past them. Retry until a free slot is found rather
-      --  than treating the first collision as fatal.
+      --  Create_Temp_Output_File advances its process-global name counter even
+      --  when a stale file collides with the candidate. Keep trying until it
+      --  gives us a unique name.
       for Attempt in 1 .. Max_Temp_Attempts loop
          Ada.Directories.Set_Directory (Temp_Dir);
          GNAT.OS_Lib.Create_Temp_Output_File (FD, Temp_Name);
@@ -240,17 +239,25 @@ package body Project_Tools.Processes is
       if FD = GNAT.OS_Lib.Invalid_FD or else Temp_Name = null then
          raise Program_Error with "could not create temporary output file";
       end if;
+      GNAT.OS_Lib.Close (FD);
 
+      --  The file-name overload reports whether the spawn itself succeeded;
+      --  unlike the descriptor overload on Windows, it never leaves an
+      --  undefined Return_Code behind. Retry transient spawn failures.
       Ada.Directories.Set_Directory (Dir);
-      GNAT.OS_Lib.Spawn
-        (Program_Name           => Program,
-         Args                   => Args,
-         Output_File_Descriptor => FD,
-         Return_Code            => Status,
-         Err_To_Out             => False);
+      for Attempt in 1 .. 3 loop
+         GNAT.OS_Lib.Spawn
+           (Program_Name => Program,
+            Args         => Args,
+            Output_File  => Temp_Path,
+            Success      => Spawned,
+            Return_Code  => Status,
+            Err_To_Out   => False);
+         exit when Spawned;
+         Status := -1;
+      end loop;
       Ada.Directories.Set_Directory (Previous);
 
-      GNAT.OS_Lib.Close (FD);
       Output :=
         Ada.Strings.Unbounded.To_Unbounded_String
           (Project_Tools.Files.Read_Raw_File (Temp_Path));

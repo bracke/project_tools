@@ -178,6 +178,10 @@ Status := Project_Tools.Processes.Run_Status
    Quiet   => True);
 ```
 
+The overload that also returns captured output reports a deterministic nonzero
+status with empty output when the program cannot be spawned, and always restores
+the caller's working directory.
+
 ## Failure Behavior
 
 Requirement helpers report a diagnostic unless `Quiet` is true, set the process exit status to failure, and raise `Program_Error`. Callers that intentionally test failure paths should catch `Program_Error` and reset the exit status before continuing.

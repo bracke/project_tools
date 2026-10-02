@@ -66,6 +66,12 @@ package Project_Tools.Processes is
       Args    : Argument_Vectors.Vector;
       Quiet   : Boolean := False) return Integer;
    --  As Run_Status above, but accepts a managed argument vector.
+   --  @param Label Human-readable command label for diagnostics.
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Managed argument vector passed to Program.
+   --  @param Quiet Suppress informational output when True.
+   --  @return Child process exit status.
 
    procedure Run
      (Label   : String;
@@ -86,6 +92,11 @@ package Project_Tools.Processes is
       Args    : Argument_Vectors.Vector;
       Quiet   : Boolean := False);
    --  As Run above, but accepts a managed argument vector.
+   --  @param Label Human-readable command label for diagnostics.
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Managed argument vector passed to Program.
+   --  @param Quiet Suppress informational output when True.
 
    function Run_Status
      (Label   : String;
@@ -113,6 +124,13 @@ package Project_Tools.Processes is
       Output  : out Unbounded_String;
       Quiet   : Boolean := False) return Integer;
    --  As captured Run_Status above, but accepts a managed argument vector.
+   --  @param Label Human-readable command label for diagnostics.
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Managed argument vector passed to Program.
+   --  @param Output Receives the child's captured standard output.
+   --  @param Quiet Suppress informational output when True.
+   --  @return Child process exit status.
 
    procedure Run
      (Label   : String;
@@ -140,6 +158,12 @@ package Project_Tools.Processes is
       Output  : out Unbounded_String;
       Quiet   : Boolean := False);
    --  As captured Run above, but accepts a managed argument vector.
+   --  @param Label Human-readable command label for diagnostics.
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Managed argument vector passed to Program.
+   --  @param Output Receives the child's captured standard output.
+   --  @param Quiet Suppress informational output when True.
 
    function Command_Output
      (Command    : String;
@@ -164,6 +188,12 @@ package Project_Tools.Processes is
       Status     : access Integer := null;
       Err_To_Out : Boolean := False) return String;
    --  As Command_Output above, but accepts a managed argument vector.
+   --  @param Command Executable to run.
+   --  @param Arguments Managed argument vector passed to Command.
+   --  @param Input Standard input for the child process.
+   --  @param Status Child status receiver.
+   --  @param Err_To_Out Whether standard error is merged into output.
+   --  @return Captured command output.
 
    function Capture
      (Label      : String;
@@ -172,6 +202,12 @@ package Project_Tools.Processes is
       Args       : Argument_Vectors.Vector;
       Quiet      : Boolean := True) return Captured_Process;
    --  Run Program and return status plus captured standard output.
+   --  @param Label Human-readable command label for diagnostics.
+   --  @param Dir Working directory for the child process.
+   --  @param Program Executable to run.
+   --  @param Args Managed argument vector passed to Program.
+   --  @param Quiet Suppress informational output when True.
+   --  @return Child status and captured standard output.
 
    function Capture_Command
      (Command    : String;
@@ -179,6 +215,11 @@ package Project_Tools.Processes is
       Input      : String := "";
       Err_To_Out : Boolean := False) return Captured_Process;
    --  Run Command and return status plus captured output.
+   --  @param Command Executable to run.
+   --  @param Arguments Managed argument vector passed to Command.
+   --  @param Input Standard input for the child process.
+   --  @param Err_To_Out Whether standard error is merged into output.
+   --  @return Child status and captured output.
 
    --  POSIX shell helpers. Unlike the Program/Args helpers above, these run
    --  commands through /bin/sh and are POSIX-oriented.
