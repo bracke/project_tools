@@ -151,7 +151,9 @@ package body Project_Tools.TOML is
                  Ada.Strings.Fixed.Index
                    (Text, String'(1 => Quote), From => First + 1);
             begin
-               if Last > First + 1 then
+               --  An empty string ("") is a value too, not a reason to read
+               --  on into the next entry that has the key.
+               if Last >= First + 1 then
                   return
                     (Status => Parsed_String,
                      Value  =>

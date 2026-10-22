@@ -546,6 +546,17 @@ package body Project_Tools_Test_Suite.Files_Tests is
            (Project_Tools.TOML.String_Value_After
               (Documented, "version =", Documented'First) = "1.2.3",
             "a key given with an assignment and no space is read");
+         declare
+            Two_Entries : constant String :=
+              "[[entry]]" & ASCII.LF & "items = """"" & ASCII.LF
+              & "[[entry]]" & ASCII.LF & "items = ""a|b""" & ASCII.LF;
+         begin
+            Assert
+              (Project_Tools.TOML.Parse_String_After (Two_Entries, "items = ", Two_Entries'First).Status
+                 = Project_Tools.TOML.Parsed_String
+               and then Project_Tools.TOML.String_Value_After (Two_Entries, "items = ", Two_Entries'First) = "",
+               "an empty string is the entry's own value, not the next entry's");
+         end;
          Assert
            (Project_Tools.TOML.Natural_Value_After
               (Documented, "count", Documented'First) = 7,
