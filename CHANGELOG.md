@@ -13,7 +13,11 @@ what came before is in `git log`, where each message says what changed and why.
 
 ## [Unreleased]
 
-- `Require_Registered_Test_Packages` no longer asks for a spec for a test body that is a subunit (`separate`), so a large test package can keep its test bodies in their own files.
+### Fixed
+
+- **`Require_Registered_Test_Packages` accepts subunit test bodies.** It asked
+  every test body for a spec, so a large test package could not keep its test
+  bodies in their own files (`is separate`); a subunit is now skipped.
 
 ### Changed
 
