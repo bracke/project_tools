@@ -13,6 +13,8 @@ what came before is in `git log`, where each message says what changed and why.
 
 ## [Unreleased]
 
+- `Require_Registered_Test_Packages` no longer asks for a spec for a test body that is a subunit (`separate`), so a large test package can keep its test bodies in their own files.
+
 ### Changed
 
 - **`Project_Tools.TOML` reads a key whether or not the caller included its

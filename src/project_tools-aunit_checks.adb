@@ -1,3 +1,4 @@
+with Ada.Strings.Fixed;
 with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
@@ -399,8 +400,39 @@ package body Project_Tools.AUnit_Checks is
                Name      : constant String := Ada.Directories.Simple_Name (Item);
                Stem      : constant String := Name (Name'First .. Name'Last - 4);
                Spec_Path : constant String := Test_Dir & "/" & Stem & ".ads";
+
+               --  A subunit (a test body split out with "is separate") is part
+               --  of its parent package and has no spec of its own.
+               function Is_Subunit return Boolean is
+                  File : Ada.Text_IO.File_Type;
+               begin
+                  Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Test_Dir & "/" & Name);
+                  while not Ada.Text_IO.End_Of_File (File) loop
+                     declare
+                        Line : constant String :=
+                          Ada.Strings.Fixed.Trim (Ada.Text_IO.Get_Line (File), Ada.Strings.Both);
+                     begin
+                        if Line /= ""
+                          and then not (Line'Length >= 2 and then Line (Line'First .. Line'First + 1) = "--")
+                          and then not (Line'Length >= 5 and then Line (Line'First .. Line'First + 4) = "with ")
+                          and then not (Line'Length >= 4 and then Line (Line'First .. Line'First + 3) = "use ")
+                        then
+                           Ada.Text_IO.Close (File);
+                           return Line'Length >= 8 and then Line (Line'First .. Line'First + 7) = "separate";
+                        end if;
+                     end;
+                  end loop;
+                  Ada.Text_IO.Close (File);
+                  return False;
+               exception
+                  when others =>
+                     if Ada.Text_IO.Is_Open (File) then
+                        Ada.Text_IO.Close (File);
+                     end if;
+                     return False;
+               end Is_Subunit;
             begin
-               if not Ada.Directories.Exists (Spec_Path) then
+               if not Ada.Directories.Exists (Spec_Path) and then not Is_Subunit then
                   Error (Errors, "AUnit test package body has no spec: " & Name, Quiet);
                end if;
             end;
