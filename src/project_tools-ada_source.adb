@@ -188,7 +188,7 @@ package body Project_Tools.Ada_Source is
       Choice_Line_Number   : Positive := 1;
       Choice_Source_Line   : Unbounded_String;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          Ada.Text_IO.Get_Line (File, Buffer, Last);
          declare
@@ -307,7 +307,7 @@ package body Project_Tools.Ada_Source is
       Last   : Natural;
       Errors : Natural := 0;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          Ada.Text_IO.Get_Line (File, Buffer, Last);
          declare
@@ -429,7 +429,7 @@ package body Project_Tools.Ada_Source is
             end loop;
          end Check_Token;
       begin
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path, Form => "shared=no");
          while not Found and then not Ada.Text_IO.End_Of_File (File) loop
             Ada.Text_IO.Get_Line (File, Buffer, Last);
             For_Each_Code_Token (Buffer (1 .. Last), Check_Token'Access);
@@ -520,7 +520,7 @@ package body Project_Tools.Ada_Source is
       function Seen_Line (Value : String) return String is
         (ASCII.LF & Value & ASCII.LF);
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          Ada.Text_IO.Get_Line (File, Buffer, Last);
          declare
@@ -657,7 +657,7 @@ package body Project_Tools.Ada_Source is
       end Check_With_Clause;
 
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Source_Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          Ada.Text_IO.Get_Line (File, Buffer, Last);
          declare
@@ -873,7 +873,7 @@ package body Project_Tools.Ada_Source is
          end;
       end Check_Declaration;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Spec_Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Spec_Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) or else Has_Pending loop
          declare
             Line : Unbounded_String;

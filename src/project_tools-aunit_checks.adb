@@ -88,7 +88,7 @@ package body Project_Tools.AUnit_Checks is
          end if;
       end Trim;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Spec_Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Spec_Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          Ada.Text_IO.Get_Line (File, Buffer, Last);
          declare
@@ -284,7 +284,7 @@ package body Project_Tools.AUnit_Checks is
          Buffer : String (1 .. 4096);
          Last   : Natural;
       begin
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Documentation_Path);
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Documentation_Path, Form => "shared=no");
          while not Ada.Text_IO.End_Of_File (File) loop
             Ada.Text_IO.Get_Line (File, Buffer, Last);
             if Last >= Documented_Stem_Prefix'Length
@@ -406,7 +406,7 @@ package body Project_Tools.AUnit_Checks is
                function Is_Subunit return Boolean is
                   File : Ada.Text_IO.File_Type;
                begin
-                  Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Test_Dir & "/" & Name);
+                  Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Test_Dir & "/" & Name, Form => "shared=no");
                   while not Ada.Text_IO.End_Of_File (File) loop
                      declare
                         Line : constant String :=

@@ -15,6 +15,10 @@ what came before is in `git log`, where each message says what changed and why.
 
 ### Fixed
 
+- A file another task of the program has open is read and written all the same: GNAT's default
+  open form refuses a file the program already has open (`Use_Error: reopening shared file`);
+  every Open and Create of a file now says `shared=no`.
+
 - **`Require_Registered_Test_Packages` accepts subunit test bodies.** It asked
   every test body for a spec, so a large test package could not keep its test
   bodies in their own files (`is separate`); a subunit is now skipped.

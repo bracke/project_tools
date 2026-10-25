@@ -71,7 +71,7 @@ package body Project_Tools.Files is
          return False;
       end if;
 
-      Ada.Text_IO.Open (File_Item, Ada.Text_IO.In_File, Path);
+      Ada.Text_IO.Open (File_Item, Ada.Text_IO.In_File, Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File_Item) loop
          if Project_Tools.Text.Contains
               (Ada.Text_IO.Get_Line (File_Item), Pattern)
@@ -95,7 +95,7 @@ package body Project_Tools.Files is
 
       File : Ada.Streams.Stream_IO.File_Type;
    begin
-      Ada.Streams.Stream_IO.Open (File, Ada.Streams.Stream_IO.In_File, Path);
+      Ada.Streams.Stream_IO.Open (File, Ada.Streams.Stream_IO.In_File, Path, Form => "shared=no");
       declare
          File_Size : constant Stream_Element_Offset :=
            Stream_Element_Offset (Ada.Streams.Stream_IO.Size (File));
@@ -399,7 +399,7 @@ package body Project_Tools.Files is
    procedure Write_Text_File (Path : String; Content : String) is
       File : Ada.Text_IO.File_Type;
    begin
-      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path);
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path, Form => "shared=no");
       Ada.Text_IO.Put (File, Content);
       Ada.Text_IO.Close (File);
    exception
@@ -415,7 +415,7 @@ package body Project_Tools.Files is
 
       File : Ada.Streams.Stream_IO.File_Type;
    begin
-      Ada.Streams.Stream_IO.Create (File, Ada.Streams.Stream_IO.Out_File, Path);
+      Ada.Streams.Stream_IO.Create (File, Ada.Streams.Stream_IO.Out_File, Path, Form => "shared=no");
       if Content'Length > 0 then
          declare
             Data      : Stream_Element_Array
@@ -441,7 +441,7 @@ package body Project_Tools.Files is
    procedure Append_Text_File (Path : String; Content : String) is
       File : Ada.Text_IO.File_Type;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.Append_File, Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.Append_File, Path, Form => "shared=no");
       Ada.Text_IO.Put (File, Content);
       Ada.Text_IO.Close (File);
    exception
@@ -466,7 +466,7 @@ package body Project_Tools.Files is
    function Has_Line (Path : String; Line : String) return Boolean is
       File : Ada.Text_IO.File_Type;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          if Ada.Text_IO.Get_Line (File) = Line then
             Ada.Text_IO.Close (File);
@@ -487,7 +487,7 @@ package body Project_Tools.Files is
       File   : Ada.Text_IO.File_Type;
       Prefix : constant String := Key & "=";
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          declare
             Line : constant String := Ada.Text_IO.Get_Line (File);

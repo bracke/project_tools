@@ -232,7 +232,7 @@ package body Project_Tools.Release_Checks is
    begin
       Ada.Directories.Create_Directory (Lock_Path);
       Created_Directory := True;
-      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Lock_Path & "/owner");
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Lock_Path & "/owner", Form => "shared=no");
       Ada.Text_IO.Put_Line (File, Owner);
       Ada.Text_IO.Close (File);
    exception
@@ -343,7 +343,7 @@ package body Project_Tools.Release_Checks is
          end if;
       end Check_Main;
    begin
-      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Project_File);
+      Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Project_File, Form => "shared=no");
       while not Ada.Text_IO.End_Of_File (File) loop
          Ada.Text_IO.Get_Line (File, Buffer, Last);
          if Last >= 7 then
@@ -473,7 +473,7 @@ package body Project_Tools.Release_Checks is
       FNV_Prime  : constant Interfaces.Unsigned_64 := 16#00000100000001b3#;
       Result     : Interfaces.Unsigned_64 := FNV_Offset;
    begin
-      SIO.Open (File, SIO.In_File, Path);
+      SIO.Open (File, SIO.In_File, Path, Form => "shared=no");
       while not SIO.End_Of_File (File) loop
          SIO.Read (File, Buffer, Last);
          for Index in Buffer'First .. Last loop

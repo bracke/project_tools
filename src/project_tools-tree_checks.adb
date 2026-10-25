@@ -207,7 +207,7 @@ package body Project_Tools.Tree_Checks is
             return False;
          end if;
 
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
          if Ada.Text_IO.End_Of_File (File) then
             Ada.Text_IO.Close (File);
             return False;
@@ -236,7 +236,7 @@ package body Project_Tools.Tree_Checks is
          Buffer : String (1 .. 256);
          Last   : Natural := 0;
       begin
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
          if not Ada.Text_IO.End_Of_File (File) then
             Ada.Text_IO.Get_Line (File, Buffer, Last);
          end if;
@@ -260,7 +260,7 @@ package body Project_Tools.Tree_Checks is
          Last   : Natural;
          Any    : Boolean := False;
       begin
-         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path);
+         Ada.Text_IO.Open (File, Ada.Text_IO.In_File, Path, Form => "shared=no");
          while not Ada.Text_IO.End_Of_File (File) loop
             Ada.Text_IO.Get_Line (File, Buffer, Last);
             if Last > 0 then
